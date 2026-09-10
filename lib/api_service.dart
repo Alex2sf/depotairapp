@@ -601,6 +601,7 @@ class ApiService {
     try {
       var request = http.MultipartRequest('POST', url)
         ..headers['Authorization'] = 'Bearer $_token'
+        ..headers['Accept'] = 'application/json'
         ..fields['notes'] = notes;
       
       if (imagePath.isNotEmpty) {
@@ -610,11 +611,20 @@ class ApiService {
       var streamedResponse = await request.send();
       
       final responseBody = await streamedResponse.stream.bytesToString();
-      final Map<String, dynamic> data = json.decode(responseBody);
+      
+      Map<String, dynamic> data;
+      try {
+        data = json.decode(responseBody);
+      } catch (_) {
+        return {
+          'success': false,
+          'message': 'Gagal (${streamedResponse.statusCode}): Respon server bukan format JSON.',
+        };
+      }
 
       if (streamedResponse.statusCode == 200 && data['success'] == true) {
         // Backend sekarang mengirim full URL di 'image_url'
-        final fullImageUrl = data['image_url'] ?? null; 
+        final fullImageUrl = data['image_url']; 
         
         return {
             'success': true, 
@@ -633,10 +643,10 @@ class ApiService {
         return {'success': false, 'message': data['message']};
       }
 
-      return {'success': false, 'message': 'Gagal: ${data['message'] ?? 'Kesalahan Server'}'};
+      return {'success': false, 'message': data['message'] ?? 'Gagal menyelesaikan order.'};
 
     } catch (e) {
-      return {'success': false, 'message': 'Kesalahan jaringan: $e'};
+      return {'success': false, 'message': 'Kesalahan pengiriman: $e'};
     }
   }
 
@@ -718,6 +728,7 @@ class ApiService {
       if (proofImagePath != null && proofImagePath.isNotEmpty) {
         var request = http.MultipartRequest('POST', url)
           ..headers['Authorization'] = 'Bearer $_token'
+          ..headers['Accept'] = 'application/json'
           ..fields['amount'] = amount.toString();
 
         if (onBehalfOfId != null) {
@@ -731,7 +742,16 @@ class ApiService {
 
         var streamedResponse = await request.send();
         final responseBody = await streamedResponse.stream.bytesToString();
-        final Map<String, dynamic> data = json.decode(responseBody);
+        
+        Map<String, dynamic> data;
+        try {
+          data = json.decode(responseBody);
+        } catch (_) {
+          return {
+            'success': false,
+            'message': 'Gagal (${streamedResponse.statusCode}): Respon server bukan format JSON.',
+          };
+        }
 
         if ((streamedResponse.statusCode == 200 || streamedResponse.statusCode == 201) && data['success'] == true) {
           return {'success': true, 'message': data['message'] ?? 'Setoran berhasil dicatat.', 'data': data['data']};
@@ -1048,6 +1068,7 @@ class ApiService {
       if (proofImagePath != null && proofImagePath.isNotEmpty) {
         var request = http.MultipartRequest('POST', url)
           ..headers['Authorization'] = 'Bearer $_token'
+          ..headers['Accept'] = 'application/json'
           ..fields['category'] = category
           ..fields['amount'] = amount.toString()
           ..fields['description'] = description;
@@ -1063,7 +1084,16 @@ class ApiService {
 
         var streamedResponse = await request.send();
         final responseBody = await streamedResponse.stream.bytesToString();
-        final Map<String, dynamic> data = json.decode(responseBody);
+        
+        Map<String, dynamic> data;
+        try {
+          data = json.decode(responseBody);
+        } catch (_) {
+          return {
+            'success': false,
+            'message': 'Gagal (${streamedResponse.statusCode}): Respon server bukan format JSON.',
+          };
+        }
 
         if ((streamedResponse.statusCode == 200 || streamedResponse.statusCode == 201) && data['success'] == true) {
           return {'success': true, 'message': data['message'] ?? 'Belanja berhasil dicatat!', 'data': data['data']};
