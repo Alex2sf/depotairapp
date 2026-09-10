@@ -1,16 +1,13 @@
-// owner_screen.dart
-
 import 'package:flutter/material.dart';
-import 'api_service.dart';
-import 'role_based_router.dart';
 import 'owner_dashboard_screen.dart';
+import 'owner_shift_monitoring_screen.dart';
 import 'owner_transactions_screen.dart' as transactions;
 import 'owner_inventory_screen.dart';
-import 'settings_screen.dart'; // Pastikan file ini sudah ada
-import 'widgets/custom_dialogs.dart';
+import 'settings_screen.dart';
 
 class OwnerScreen extends StatefulWidget {
-  const OwnerScreen({super.key});
+  final int initialIndex;
+  const OwnerScreen({super.key, this.initialIndex = 0});
 
   @override
   State<OwnerScreen> createState() => _OwnerScreenState();
@@ -18,101 +15,89 @@ class OwnerScreen extends StatefulWidget {
 
 class _OwnerScreenState extends State<OwnerScreen> {
   int _selectedIndex = 0;
-  final ApiService _apiService = ApiService();
 
-  // Daftar Tab Halaman
+  // 5 Tab Halaman untuk Owner & Admin
   late final List<Widget> _widgetOptions = [
-    const OwnerDashboardScreen(),                 // Index 0
-    const transactions.OwnerTransactionsScreen(), // Index 1
-    const OwnerInventoryScreen(),                 // Index 2
-    const SettingsScreen(),                       // Index 3
+    OwnerDashboardScreen(onNavigateToShiftTab: () => _onItemTapped(1)), // Index 0: Ringkasan
+    const OwnerShiftMonitoringScreen(),                                // Index 1: Shift & Setor
+    const transactions.OwnerTransactionsScreen(),                      // Index 2: Transaksi
+    const OwnerInventoryScreen(),                                      // Index 3: Stok
+    const SettingsScreen(),                                            // Index 4: Pengaturan
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
   }
 
-  // --- FUNGSI LOGOUT YANG SUDAH DIPERBAIKI (ANTI CRASH) ---
-  Future<void> _handleLogout() async {
-    // 1. Simpan context parent agar aman
-    final parentContext = context;
-
-    final confirmed = await showLogoutDialog(parentContext);
-
-    // Stop jika user pilih Batal
-    if (!confirmed) return;
-
-    // 2. Cek Mounted sebelum proses async
-    if (!mounted) return;
-
-    await _apiService.logout();
-
-    // 3. Cek Mounted lagi setelah proses async selesai
-    // (Penting: Widget mungkin sudah dibuang saat menunggu API selesai)
-    if (!mounted) return;
-
-    // 4. Navigasi aman menggunakan parentContext
-    Navigator.of(parentContext).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const RoleBasedRouter()),
-      (route) => false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Tentukan Judul AppBar berdasarkan Tab
-    String title;
-    switch (_selectedIndex) {
-      case 0:
-        title = 'Dashboard & Omzet';
-        break;
-      case 1:
-        title = 'Riwayat Transaksi';
-        break;
-      case 2:
-        title = 'Stok Analitik';
-        break;
-      default:
-        title = 'Owner';
-    }
-
     return Scaffold(
-      // Logic AppBar:
-      // Jika di tab Settings (index 3), sembunyikan AppBar parent (null)
-      // agar tidak double dengan AppBar milik SettingsScreen.
-      appBar: _selectedIndex == 3
-          ? null
-          : AppBar(
-              title: Text(title),
-              automaticallyImplyLeading: false, // Hilangkan tombol back
-              actions: [
-                // Tombol Logout di AppBar (Hanya muncul di Tab 0, 1, 2)
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.red),
-                  tooltip: 'Logout',
-                  onPressed: _handleLogout,
-                ),
-              ],
-            ),
-      
-      // Body Halaman
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+      backgroundColor: const Color(0xFFF1F5F9),
+      // Setiap halaman memiliki header/AppBar masing-masing yang sudah terintegrasi rapi
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _widgetOptions,
       ),
 
-      // Navigasi Bawah
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // Wajib fixed biar teks 4 tab muncul
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Ringkasan'),
-          BottomNavigationBarItem(icon: Icon(Icons.list_alt), label: 'Transaksi'),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Stok'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
+      // 5 Navigasi Bawah Modern
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 15,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          minimum: const EdgeInsets.only(bottom: 6),
+          child: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            selectedItemColor: const Color(0xFF0284C7),
+            unselectedItemColor: Colors.blueGrey.shade400,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 10.5),
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.space_dashboard_outlined),
+                activeIcon: Icon(Icons.space_dashboard_rounded),
+                label: 'Ringkasan',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.assignment_ind_outlined),
+                activeIcon: Icon(Icons.assignment_ind_rounded),
+                label: 'Shift & Setor',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.receipt_long_outlined),
+                activeIcon: Icon(Icons.receipt_long_rounded),
+                label: 'Transaksi',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.inventory_2_outlined),
+                activeIcon: Icon(Icons.inventory_2_rounded),
+                label: 'Stok',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.settings_outlined),
+                activeIcon: Icon(Icons.settings_rounded),
+                label: 'Pengaturan',
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
