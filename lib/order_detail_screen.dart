@@ -549,7 +549,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomActionBar(currentStatus),
+      bottomNavigationBar: _buildBottomActionBar(detail, currentStatus),
     );
   }
 
@@ -579,40 +579,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                  const Row(children: [Icon(Icons.check_circle, color: Colors.green, size: 16), SizedBox(width: 8), Text('HUBUNGAN BUKTI KURIR', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))]),
-                  const SizedBox(height: 12),
-                  if (imageUrl.isNotEmpty)
-                    GestureDetector(
-                        onTap: () => _showFullImage(imageUrl),
-                        child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          imageUrl, 
-                          height: 150, 
-                          width: double.infinity, 
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 150,
-                              color: Colors.grey.shade200,
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.broken_image, color: Colors.grey.shade400, size: 32),
-                                  const SizedBox(height: 8),
-                                  Text('Gambar tidak ditemukan', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                        ),
-                    ),
+                  const Text('BUKTI PENGANTARAN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green)),
                   const SizedBox(height: 8),
-                  Text('Oleh: ${proof['uploaded_by']} • ${proof['uploaded_at']}', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                  if (proof['notes'] != null)
-                    Padding(padding: const EdgeInsets.only(top: 4), child: Text('"${proof['notes']}"', style: const TextStyle(fontStyle: FontStyle.italic)))
+                  GestureDetector(
+                      onTap: () => _showFullImage(imageUrl),
+                      child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                              imageUrl, 
+                              height: 150, 
+                              width: double.infinity, 
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                  height: 150, 
+                                  color: Colors.grey.shade200, 
+                                  child: const Center(child: Text('Gagal memuat gambar bukti'))
+                              ),
+                          ),
+                      ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text("Catatan: ${proof['notes'] ?? '-'}", style: const TextStyle(fontSize: 12)),
+                  Text("Diupload: ${proof['uploaded_at'] ?? '-'} oleh ${proof['uploaded_by'] ?? '-'}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
               ],
           ),
       );
@@ -648,10 +636,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildBottomActionBar(String status) {
+  Widget _buildBottomActionBar(Map<String, dynamic> detail, String status) {
       bool showReady = ['DRAFT', 'PREPARED', 'PENDING', 'NEW', 'PAID'].contains(status);
       bool showComplete = ['READY', 'ON_DELIVERY'].contains(status);
-      bool showCancel = status != 'CANCELLED';
+
+      // --- ATURAN KEAMANAN PEMBATALAN: Maksimal 60 Menit sejak dibuat ---
+      bool isUnder60Minutes = true;
+      final createdAt = _parseDate(detail['created_at']);
+      if (createdAt != null) {
+        final elapsedMinutes = DateTime.now().difference(createdAt).inMinutes;
+        if (elapsedMinutes > 60) {
+          isUnder60Minutes = false;
+        }
+      }
+
+      // Bisa cancel jika belum CANCELLED dan masih dalam batas aman 60 menit
+      bool showCancel = status != 'CANCELLED' && (detail['can_cancel'] ?? isUnder60Minutes);
 
       if (!showReady && !showComplete && !showCancel) return const SizedBox.shrink();
 
