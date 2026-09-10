@@ -281,59 +281,161 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _showSuccessDialog(Map<String, dynamic> order) {
     bool isPickup = _orderType == 'SELF_PICKUP';
+    bool isPrinting = false;
+
     showDialog(
-      context: context, barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-           Icon(
-             isPickup ? Icons.check_circle : Icons.delivery_dining, 
-             color: isPickup ? Colors.green : Colors.blue.shade700, 
-             size: 70,
-           ),
-           const SizedBox(height: 14),
-           Text(
-             isPickup ? "Pesanan Selesai!" : "Order Berhasil Dibuat!", 
-             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-           ),
-           const SizedBox(height: 4),
-           Text("#${order['order_number']}", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-           const SizedBox(height: 10),
-           Container(
-             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-             decoration: BoxDecoration(
-               color: isPickup ? Colors.green.shade50 : Colors.blue.shade50,
-               borderRadius: BorderRadius.circular(8),
-               border: Border.all(color: isPickup ? Colors.green.shade200 : Colors.blue.shade200),
-             ),
-             child: Text(
-               isPickup ? "⚡ AMBIL SENDIRI • STATUS COMPLETE" : "🚚 DIANTAR • MENUNGGU KURIR",
-               style: TextStyle(
-                 fontSize: 11, 
-                 fontWeight: FontWeight.bold, 
-                 color: isPickup ? Colors.green.shade800 : Colors.blue.shade800,
-               ),
-             ),
-           ),
-           const SizedBox(height: 20),
-           SizedBox(
-             width: double.infinity,
-             child: ElevatedButton(
-                 style: ElevatedButton.styleFrom(
-                   backgroundColor: isPickup ? Colors.green : Colors.blue.shade800,
-                   foregroundColor: Colors.white,
-                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                   padding: const EdgeInsets.symmetric(vertical: 12),
-                 ),
-                 onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                   MaterialPageRoute(builder: (_) => const RoleBasedRouter()), 
-                   (r) => false,
-                 ),
-                 child: const Text("Selesai & Ke Beranda", style: TextStyle(fontWeight: FontWeight.bold))
-             ),
-           )
-        ]),
-      )
+      context: context, 
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+          content: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: isPickup ? Colors.green.shade50 : Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isPickup ? Colors.green.shade200 : Colors.blue.shade200, 
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    isPickup ? Icons.check_circle_rounded : Icons.delivery_dining_rounded, 
+                    color: isPickup ? Colors.green.shade600 : Colors.blue.shade700, 
+                    size: 44,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isPickup ? "Pesanan Selesai!" : "Pesanan Berhasil Dibuat!", 
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19, color: Color(0xFF0F172A)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "#${order['order_number']}", 
+                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isPickup ? Colors.green.shade50 : Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isPickup ? Colors.green.shade200 : Colors.blue.shade200),
+                ),
+                child: Text(
+                  isPickup ? "⚡ AMBIL SENDIRI • STATUS COMPLETE" : "🚚 DIANTAR • MENUNGGU KURIR",
+                  style: TextStyle(
+                    fontSize: 11, 
+                    fontWeight: FontWeight.bold, 
+                    color: isPickup ? Colors.green.shade800 : Colors.blue.shade800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 1. TOMBOL UTAMA: CETAK STRUK THERMAL
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7), // Sky Blue 600
+                    foregroundColor: Colors.white,
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: isPrinting
+                      ? null
+                      : () async {
+                          setDialogState(() => isPrinting = true);
+                          try {
+                            final success = await _printerService.printReceipt(order);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(
+                                        success ? Icons.check_circle : Icons.warning_amber_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          success 
+                                            ? "Struk berhasil dicetak!" 
+                                            : "Gagal mencetak struk. Pastikan Bluetooth printer aktif & terhubung di Pengaturan.",
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: success ? Colors.green.shade700 : Colors.red.shade700,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Error cetak: $e"),
+                                  backgroundColor: Colors.red.shade700,
+                                ),
+                              );
+                            }
+                          } finally {
+                            setDialogState(() => isPrinting = false);
+                          }
+                        },
+                  icon: isPrinting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.print_rounded, size: 20),
+                  label: Text(
+                    isPrinting ? "Mencetak Struk..." : "Cetak Struk Sekarang",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // 2. TOMBOL SELESAI / TRANSAKSI BARU
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const RoleBasedRouter()), 
+                    (r) => false,
+                  ),
+                  icon: const Icon(Icons.home_rounded, size: 18),
+                  label: const Text("Selesai & Ke Beranda", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
