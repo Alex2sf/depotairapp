@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'printer_service.dart';
 import 'main_screen.dart';
+import 'widgets/custom_dialogs.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderNumber;
@@ -131,17 +132,212 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _handleCancel() async {
-    if (!await _showConfirmationDialog('Batalkan Order', 'Yakin ingin membatalkan order ini?')) return;
+    final reasons = [
+      'Salah input barang / jumlah',
+      'Pelanggan membatalkan pesanan',
+      'Uang pembayaran kurang / tidak jadi bayar',
+      'Pesanan dobel / duplikat',
+      'Lainnya',
+    ];
+
+    String selectedReason = reasons.first;
+    final TextEditingController otherReasonCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isComplete = (_orderDetail?['status'] ?? '').toString().toUpperCase() == 'COMPLETE';
+          final paymentType = (_orderDetail?['payment_type'] ?? '').toString().toUpperCase();
+          final totalAmount = _formatCurrency(_orderDetail?['total_amount'] ?? 0);
+
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            elevation: 8,
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 28),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Batalkan Pesanan (Void)',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF0F172A)),
+                            ),
+                            Text(
+                              'Stok & uang laci akan disesuaikan',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Warning Notice
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Text(
+                              isComplete ? 'Pesanan Sudah Selesai (COMPLETE)' : 'Konfirmasi Pembatalan',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          paymentType == 'TUNAI'
+                              ? '• Saldo laci kasir akan otomatis DIPOTONG $totalAmount (refund kasir).\n• Semua stok galon/barang akan DIKEMBALIKAN ke sistem.'
+                              : '• Semua stok galon/barang akan otomatis DIKEMBALIKAN ke sistem.',
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.4),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  const Text(
+                    'Pilih Alasan Pembatalan:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Dropdown / Radio alasan
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedReason,
+                        items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)))).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedReason = val);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+
+                  if (selectedReason == 'Lainnya') ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: otherReasonCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'Tulis alasan pembatalan...',
+                        hintStyle: const TextStyle(fontSize: 12),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Kembali'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Batalkan Nota', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final finalReason = selectedReason == 'Lainnya' && otherReasonCtrl.text.trim().isNotEmpty
+        ? otherReasonCtrl.text.trim()
+        : selectedReason;
+
     setState(() => _isProcessing = true);
-    final success = await _apiService.cancelOrder(widget.orderNumber);
+    final result = await _apiService.cancelOrder(widget.orderNumber, reason: finalReason);
     setState(() => _isProcessing = false);
-    if (mounted && success) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order berhasil dibatalkan.')));
-       Navigator.of(context).pushAndRemoveUntil(
-         MaterialPageRoute(builder: (context) => const MainScreen(initialIndex: 2)), // 2 = History Tab
-         (route) => false,
-       );
-    } 
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      await showAppSuccessDialog(
+        context: context,
+        title: 'Pesanan Dibatalkan',
+        message: result['message'] ?? 'Pesanan berhasil dibatalkan.',
+        hint: 'Stok barang telah dikembalikan ke gudang dan saldo laci kasir telah disesuaikan.',
+        onConfirm: () {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const MainScreen(initialIndex: 2)),
+            (route) => false,
+          );
+        },
+      );
+    } else {
+      await showAppErrorDialog(
+        context: context,
+        title: 'Gagal Membatalkan',
+        message: result['message'] ?? 'Terjadi kesalahan saat membatalkan pesanan.',
+      );
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -455,7 +651,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Widget _buildBottomActionBar(String status) {
       bool showReady = ['DRAFT', 'PREPARED', 'PENDING', 'NEW', 'PAID'].contains(status);
       bool showComplete = ['READY', 'ON_DELIVERY'].contains(status);
-      bool showCancel = !['COMPLETE', 'CANCELLED'].contains(status);
+      bool showCancel = status != 'CANCELLED';
 
       if (!showReady && !showComplete && !showCancel) return const SizedBox.shrink();
 
@@ -470,14 +666,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   children: [
                       if (showCancel)
                           Expanded(
-                              child: OutlinedButton(
+                              child: OutlinedButton.icon(
                                   onPressed: _isProcessing ? null : _handleCancel,
                                   style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      side: BorderSide(color: Colors.red.shade200),
-                                      foregroundColor: Colors.red
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      side: BorderSide(color: Colors.red.shade300),
+                                      foregroundColor: Colors.red.shade700,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
-                                  child: const Text('BATALKAN'),
+                                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                                  label: const Text('BATALKAN NOTA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               ),
                           ),
                       

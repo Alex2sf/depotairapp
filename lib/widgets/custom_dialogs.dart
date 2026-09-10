@@ -306,3 +306,108 @@ Future<void> showAppWarningDialog({
     ),
   );
 }
+
+/// Menampilkan Dialog Sukses
+Future<void> showAppSuccessDialog({
+  required BuildContext context,
+  required String title,
+  required String message,
+  String? hint,
+  String buttonText = 'Selesai',
+  VoidCallback? onConfirm,
+}) async {
+  if (!context.mounted) return;
+  await showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      elevation: 8,
+      backgroundColor: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4), // Green 50
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFBBF7D0), width: 2), // Green 200
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: 38,
+                  color: Color(0xFF16A34A), // Green 600
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569), height: 1.45),
+            ),
+            if (hint != null && hint.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFDCFCE7)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_rounded, size: 16, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        hint,
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF166534), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (onConfirm != null) onConfirm();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(buttonText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}

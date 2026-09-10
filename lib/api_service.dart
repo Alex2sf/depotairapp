@@ -486,25 +486,27 @@ class ApiService {
     }
   }
 
-  // --- ENDPOINT CANCEL ORDER ---
-  Future<bool> cancelOrder(String orderNumber) async {
-    if (_token == null) return false;
+  // --- ENDPOINT CANCEL / VOID ORDER ---
+  Future<Map<String, dynamic>> cancelOrder(String orderNumber, {String? reason}) async {
+    if (_token == null) return {'success': false, 'message': 'Sesi login tidak ditemukan'};
     final url = Uri.parse('$_baseUrl/orders/$orderNumber/cancel');
     try {
       final response = await http.post(
         url,
-        headers: {'Authorization': 'Bearer $_token'},
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'reason': reason ?? 'Dibatalkan oleh kasir',
+        }),
       );
 
       final Map<String, dynamic> data = json.decode(response.body);
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        return true;
-      } else {
-        return false;
-      }
+      return data;
     } catch (e) {
-      return false;
+      return {'success': false, 'message': 'Gagal membatalkan pesanan: $e'};
     }
   }
 
