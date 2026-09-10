@@ -5,6 +5,7 @@ import 'api_service.dart';
 import 'cart_model.dart';
 import 'role_based_router.dart';
 import 'printer_service.dart';
+import 'widgets/custom_dialogs.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -133,32 +134,62 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _attemptCheckout(CartModel cart) async {
-    if (_nameController.text.isEmpty) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nama Pelanggan Wajib Diisi!'), backgroundColor: Colors.red));
-         return;
+    final customerName = _nameController.text.trim();
+    if (customerName.isEmpty) {
+      await showAppWarningDialog(
+        context: context,
+        title: 'Nama Pelanggan Belum Diisi',
+        message: 'Mohon masukkan nama pelanggan sebelum memproses pesanan.',
+        hint: 'Ketik nama pelanggan pada kolom Info Pelanggan di bagian atas.',
+      );
+      return;
     }
+
+    if (cart.items.isEmpty) {
+      await showAppWarningDialog(
+        context: context,
+        title: 'Keranjang Masih Kosong',
+        message: 'Tidak ada barang yang dipilih untuk dicheckout.',
+        hint: 'Kembali ke tab Kasir untuk memilih produk sebelum bayar.',
+      );
+      return;
+    }
+
     // Auto-save customer if not yet saved but ID is null
     if (_customerId == null) await _processCreateOrSelectCustomer();
     if (!mounted) return;
     if (_customerId == null) return; // Save failed
 
-    if (cart.items.isEmpty) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keranjang Kosong!'))); 
-         return; 
-    }
     if (_orderType == 'DELIVERY') {
       if (_addressController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alamat Wajib Diisi untuk Delivery!'), backgroundColor: Colors.red),
+        await showAppWarningDialog(
+          context: context,
+          title: 'Alamat Pengiriman Wajib Diisi',
+          message: 'Pesanan jenis Delivery memerlukan alamat tujuan pengantaran.',
+          hint: 'Tulis alamat lengkap seperti jalan, RT/RW, nomor rumah, atau patokan.',
         );
         return;
       }
       if (_isScheduledDelivery && _deliverySchedule == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Jadwal Kirim Wajib Diisi!'), backgroundColor: Colors.red),
+        await showAppWarningDialog(
+          context: context,
+          title: 'Jadwal Pengiriman Belum Dipilih',
+          message: 'Anda memilih Jadwalkan Nanti, harap tentukan tanggal dan jam pengantaran.',
+          hint: 'Klik kotak jadwal pengantaran untuk memilih waktu yang diinginkan.',
         );
         return;
       }
+    }
+
+    final rawGmaps = _gmapsLinkController.text.trim();
+    if (rawGmaps.isNotEmpty && !rawGmaps.startsWith('http://') && !rawGmaps.startsWith('https://')) {
+      await showAppWarningDialog(
+        context: context,
+        title: 'Link Google Maps Tidak Valid',
+        message: 'Link Google Maps harus diawali dengan http:// atau https://',
+        hint: 'Contoh yang benar: https://maps.app.goo.gl/... atau kosongkan jika tidak ada.',
+      );
+      return;
     }
 
     setState(() => _isCheckingOut = true);
@@ -196,15 +227,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return;
       }
       final order = result['order'];
-      // PRINT removed as per request (moved to Order History > Complete)
-      // try {
-      //     await _printerService.printReceipt(order);
-      // } catch(e) { /* ignore */ }
-      
       cart.clearCart();
       _showSuccessDialog(order);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result?['message'] ?? 'Gagal Checkout'), backgroundColor: Colors.red));
+      final rawError = result?['message'] ?? 'Terjadi kendala saat memproses pesanan di server.';
+      String friendlyMsg = rawError;
+      String? friendlyHint;
+
+      if (rawError.toLowerCase().contains('stok') || rawError.toLowerCase().contains('stock')) {
+        friendlyMsg = 'Stok salah satu barang di keranjang tidak mencukupi atau telah habis.';
+        friendlyHint = 'Periksa sisa stok barang di sistem atau sesuaikan jumlah pembelian.';
+      } else if (rawError.toLowerCase().contains('unauthenticated') || rawError.toLowerCase().contains('token')) {
+        friendlyMsg = 'Sesi login Anda telah berakhir demi keamanan.';
+        friendlyHint = 'Silakan keluar dan login ulang ke aplikasi untuk melanjutkan transaksi.';
+      } else if (rawError.toLowerCase().contains('address_link') || rawError.toLowerCase().contains('url')) {
+        friendlyMsg = 'Format link Google Maps tidak valid menurut server.';
+        friendlyHint = 'Pastikan link berupa URL lengkap https://... atau kosongkan kolom ini.';
+      }
+
+      await showAppErrorDialog(
+        context: context,
+        title: 'Transaksi Tidak Dapat Diproses',
+        message: friendlyMsg,
+        hint: friendlyHint,
+      );
     }
   }
 
