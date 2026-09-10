@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'api_service.dart';
 import 'role_based_router.dart';
+import 'order_history_screen.dart';
+import 'widgets/cashier_reminder_dialog.dart';
 
 class CloseShiftScreen extends StatefulWidget {
   const CloseShiftScreen({super.key});
@@ -76,6 +78,39 @@ class _CloseShiftScreenState extends State<CloseShiftScreen> {
 
   Future<void> _submitCloseShift() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // 1. Cek apakah ada pesanan hari ini yang belum selesai
+    try {
+      final ordersRes = await _apiService.getOrderHistory();
+      if (ordersRes != null && ordersRes['data'] is List) {
+        final List<dynamic> list = ordersRes['data'];
+        final unfinished = list.where((o) {
+          if (o is! Map<String, dynamic>) return false;
+          final st = (o['status'] ?? '').toString().toUpperCase();
+          return st != 'COMPLETE' && st != 'DONE' && st != 'CANCELLED' && st != 'DELIVERED';
+        }).toList();
+
+        if (unfinished.isNotEmpty && mounted) {
+          final reviewOrders = await showUnfinishedOrdersWarningDialog(
+            context: context,
+            unfinishedOrders: unfinished.cast<Map<String, dynamic>>(),
+          );
+
+          if (reviewOrders == true) {
+            if (!mounted) return;
+            // Pengguna memilih untuk memeriksa pesanan terlebih dahulu
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+            );
+            if (mounted) _fetchShiftData();
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
 
     final actualCash = _getEnteredActualCash();
     final expectedCash = (_shiftData?['expected_cash'] ?? 0) as int;

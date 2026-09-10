@@ -13,6 +13,8 @@ import 'settings_screen.dart';
 import 'widgets/custom_dialogs.dart';
 import 'stock_adjustment_screen.dart';
 import 'cashier_purchase_screen.dart';
+import 'order_detail_screen.dart';
+import 'widgets/cashier_reminder_dialog.dart';
 
 class MainScreen extends StatefulWidget {
   final int initialIndex;
@@ -27,11 +29,148 @@ class _MainScreenState extends State<MainScreen> {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _userProfile;
 
+  final Map<String, DateTime> _snoozedOrders = {};
+  bool _isCheckingReminder = false;
+  static const int _overdueThresholdMinutes = 60; // 1 jam
+  static const int _snoozeMinutes = 15;
+
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _fetchProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCashierOverdueOrders();
+    });
+  }
+
+  DateTime? _parseOrderTimestamp(String? timestampStr) {
+    if (timestampStr == null || timestampStr.isEmpty) return null;
+    try {
+      return DateTime.parse(timestampStr).toLocal();
+    } catch (_) {
+      try {
+        return DateFormat('dd/MM/yyyy HH:mm').parse(timestampStr);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<void> _checkCashierOverdueOrders() async {
+    if (!mounted || _isCheckingReminder || _selectedIndex != 0) return;
+
+    try {
+      final now = DateTime.now();
+      final res = await _apiService.getOrderHistory();
+      if (res == null || res['data'] == null) return;
+
+      final List<dynamic> orders = res['data'] is List ? res['data'] : [];
+      if (orders.isEmpty) return;
+
+      Map<String, dynamic>? mostOverdueOrder;
+      int maxMinutesElapsed = 0;
+
+      for (var raw in orders) {
+        if (raw is! Map<String, dynamic>) continue;
+        final status = (raw['status'] ?? '').toString().toUpperCase();
+
+        // Cek pesanan yang belum selesai
+        if (status == 'COMPLETE' ||
+            status == 'DONE' ||
+            status == 'CANCELLED' ||
+            status == 'DELIVERED') {
+          continue;
+        }
+
+        final orderNumber = raw['order_number']?.toString();
+        if (orderNumber == null || orderNumber.isEmpty) continue;
+
+        // Cek apakah di-snooze
+        final snoozeUntil = _snoozedOrders[orderNumber];
+        if (snoozeUntil != null && now.isBefore(snoozeUntil)) {
+          continue;
+        }
+
+        final time = _parseOrderTimestamp(raw['ready_time']?.toString()) ??
+            _parseOrderTimestamp(raw['created_at']?.toString());
+        if (time == null) continue;
+
+        final elapsed = now.difference(time).inMinutes;
+        if (elapsed >= _overdueThresholdMinutes && elapsed > maxMinutesElapsed) {
+          maxMinutesElapsed = elapsed;
+          mostOverdueOrder = raw;
+        }
+      }
+
+      if (mostOverdueOrder != null && mounted) {
+        _isCheckingReminder = true;
+        final orderNumber = mostOverdueOrder['order_number']?.toString() ?? '';
+
+        final action = await showCashierReminderDialog(
+          context: context,
+          order: mostOverdueOrder,
+          minutesElapsed: maxMinutesElapsed,
+        );
+
+        _isCheckingReminder = false;
+        if (!mounted) return;
+
+        if (action == CashierReminderAction.completeNow) {
+          // Selesaikan pesanan langsung
+          final success = await _apiService.completeOrderManual(orderNumber);
+          if (mounted) {
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Colors.white),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text("Pesanan #$orderNumber berhasil diselesaikan!")),
+                    ],
+                  ),
+                  backgroundColor: Colors.green.shade700,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+              // Cek lagi apakah ada pesanan lain yang menggantung
+              _checkCashierOverdueOrders();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Gagal menyelesaikan pesanan #$orderNumber"),
+                  backgroundColor: Colors.red.shade700,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+        } else if (action == CashierReminderAction.viewDetail) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OrderDetailScreen(orderNumber: orderNumber),
+            ),
+          );
+          _checkCashierOverdueOrders();
+        } else if (action == CashierReminderAction.snooze) {
+          _snoozedOrders[orderNumber] = now.add(const Duration(minutes: _snoozeMinutes));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Pengingat #$orderNumber ditunda $_snoozeMinutes menit."),
+              duration: const Duration(seconds: 3),
+              backgroundColor: Colors.blueGrey.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      _isCheckingReminder = false;
+    }
   }
 
   Future<void> _fetchProfile() async {
@@ -55,10 +194,16 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
+    if (index == 0) {
+      _checkCashierOverdueOrders();
+    }
   }
 
-  void _navigateToInternal(Widget page) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  void _navigateToInternal(Widget page) async {
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+      if (mounted && _selectedIndex == 0) {
+        _checkCashierOverdueOrders();
+      }
   }
   
   // --- WIDGET OPTIONS ---
