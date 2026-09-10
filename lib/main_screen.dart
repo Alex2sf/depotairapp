@@ -29,6 +29,9 @@ class _MainScreenState extends State<MainScreen> {
 
   // Shift & Cash Data
   Map<String, dynamic>? _currentShiftData;
+  Map<String, dynamic>? _lastClosedShift;
+  Map<String, dynamic>? _unclosedShiftWarning;
+  bool _hasShownHandoverDialog = false;
   int _activeOrdersCount = 0;
   bool _hideBalance = false;
 
@@ -71,7 +74,19 @@ class _MainScreenState extends State<MainScreen> {
       if (mounted && result != null && result['success'] == true) {
         setState(() {
           _currentShiftData = result['shift'];
+          _lastClosedShift = result['last_closed_shift'];
+          _unclosedShiftWarning = result['unclosed_shift_warning'];
         });
+
+        // Tampilkan pop-up dialog serah terima sekali saat kasir masuk dan ada shift sebelumnya yang ditutup
+        if (!_hasShownHandoverDialog && _lastClosedShift != null) {
+          _hasShownHandoverDialog = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _selectedIndex == 0) {
+              _showShiftHandoverDialog(_lastClosedShift!);
+            }
+          });
+        }
       }
     } catch (_) {}
   }
@@ -298,6 +313,20 @@ class _MainScreenState extends State<MainScreen> {
                   child: _buildHeroShiftCard(expectedCash, totalCashSales, totalPurchases),
                 ),
               ),
+
+              // 2.5. SERAH TERIMA SHIFT SEBELUMNYA (KASIR SEBELUMNYA SUDAH TUTUP)
+              if (_lastClosedShift != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: _buildShiftHandoverBanner(),
+                ),
+
+              // 2.6. PERINGATAN SHIFT SEBELUMNYA BELUM DITUTUP
+              if (_unclosedShiftWarning != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: _buildUnclosedShiftWarningBanner(),
+                ),
 
               // 3. ACTIVE ORDERS ALERT BANNER (JIKA ADA PESANAN GANTUNG)
               if (_activeOrdersCount > 0)
@@ -847,6 +876,314 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // --- SHIFT HANDOVER BANNER ---
+  Widget _buildShiftHandoverBanner() {
+    final shift = _lastClosedShift!;
+    final cashierName = shift['cashier_name'] ?? 'Kasir';
+    final endTime = shift['end_time'] ?? '-';
+    final actualCash = shift['actual_cash'] ?? 0;
+    final cashDeposited = shift['cash_deposited'] ?? 0;
+
+    return InkWell(
+      onTap: () => _showShiftHandoverDialog(shift),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF16A34A), size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          "Shift Sebelumnya: $cashierName",
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          "Tutup $endTime",
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    "Modal laci ditinggal: ${_formatCurrency(actualCash)} • Setoran: ${_formatCurrency(cashDeposited)}",
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- UNCLOSED SHIFT WARNING BANNER ---
+  Widget _buildUnclosedShiftWarningBanner() {
+    final otherName = _unclosedShiftWarning?['other_user_name'] ?? 'Kasir Lain';
+    final openedAt = _unclosedShiftWarning?['opened_at'] ?? '-';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Peringatan: Shift Sebelumnya Belum Ditutup",
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: Color(0xFF92400E)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Kasir $otherName belum menutup shift (buka sejak $openedAt). Pastikan Anda telah melakukan serah terima fisik uang kas laci.",
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF78350F)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- DIALOG SERAH TERIMA SHIFT ---
+  void _showShiftHandoverDialog(Map<String, dynamic> shift) {
+    final cashierName = shift['cashier_name'] ?? 'Kasir Sebelumnya';
+    final endTime = shift['end_time'] ?? '-';
+    final actualCash = shift['actual_cash'] ?? 0;
+    final cashDeposited = shift['cash_deposited'] ?? 0;
+    final cashSales = shift['cash_sales'] ?? 0;
+    final cashExpenses = shift['cash_expenses'] ?? 0;
+    final notes = (shift['notes'] as String?)?.trim();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.assignment_turned_in_rounded, color: Color(0xFF0284C7), size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Serah Terima Shift", style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text("Informasi shift kasir sebelumnya", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // KASIR & WAKTU
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Kasir Sebelumnya", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text(cashierName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Waktu Tutup Shift", style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      Text(endTime, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // HIGHLIGHT: MODAL FISIK DI LACI
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF16A34A), size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Modal Ditinggal di Laci", style: TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(
+                          _formatCurrency(actualCash),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text("Pastikan uang fisik di laci sesuai dengan angka ini.", style: TextStyle(fontSize: 10.5, color: Color(0xFF16A34A))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // RINGKASAN REKONSILIASI
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  _buildHandoverDetailRow("Disetor ke Kas Besar", _formatCurrency(cashDeposited), const Color(0xFF4338CA)),
+                  const SizedBox(height: 4),
+                  _buildHandoverDetailRow("Penjualan Tunai Lalu", _formatCurrency(cashSales), const Color(0xFF334155)),
+                  if (cashExpenses > 0) ...[
+                    const SizedBox(height: 4),
+                    _buildHandoverDetailRow("Belanja Kasir Lalu", "-${_formatCurrency(cashExpenses)}", const Color(0xFFDC2626)),
+                  ],
+                ],
+              ),
+            ),
+
+            // CATATAN KASIR
+            if (notes != null && notes.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.sticky_note_2_rounded, size: 16, color: Color(0xFFD97706)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("Catatan Kasir:", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+                          Text('"$notes"', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF78350F))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("Siap Bertugas & Lanjut Kasir", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHandoverDetailRow(String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: valueColor)),
+      ],
     );
   }
 
