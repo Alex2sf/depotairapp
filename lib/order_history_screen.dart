@@ -252,8 +252,15 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
               ),
               const SizedBox(height: 8),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(isToday ? "📅 HARI INI" : "📅 Mode Filter Tanggal", style: TextStyle(fontWeight: FontWeight.bold, color: isToday ? Colors.green : Colors.black)),
-                  Row(children: [
+                  Flexible(
+                    child: Text(
+                      isToday ? "📅 HARI INI" : "📅 Filter Tanggal",
+                      style: TextStyle(fontWeight: FontWeight.bold, color: isToday ? Colors.green : Colors.black),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Row(mainAxisSize: MainAxisSize.min, children: [
                       InkWell(
                          onTap: () => _selectDate(true),
                          child: _dateChip(_startDate, "Dari"),
@@ -428,49 +435,76 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                           child: Padding(
                              padding: const EdgeInsets.all(16), 
                              child: Column(children: [
-                                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                     Row(children: [
-                                         Icon(isDelivery ? Icons.motorcycle : Icons.store, size: 16, color: Colors.grey),
-                                         const SizedBox(width: 8),
-                                         Text("#${order['order_number']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                     ]),
-                                     Row(
-                                       children: [
-                                          // --- TIMER DISPLAY ---
-                                          if (status != 'COMPLETE' && status != 'CANCELLED' && status != 'DONE') 
-                                              OrderTimerWidget(order: order),
-                                          
-                                          Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
-                                              child: Text(status, style: TextStyle(color: badgeTextColor, fontSize: 10, fontWeight: FontWeight.bold))
-                                          ),
-                                       ],
-                                     )
-                                   ],
-                                 ),
-                                 const Divider(height: 24),
-                                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                                     Expanded(
-                                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                           Text(order['customer_name'] ?? 'Pelanggan', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                           const SizedBox(height: 4),
-                                           // TAMPILKAN JADWAL ATAU TIPE
-                                           // TAMPILKAN JADWAL ATAU TIPE
-                                           if (formattedSchedule != '-') ...[
-                                              Row(children: [
-                                                Icon(Icons.access_time, size: 12, color: isDelivery ? Colors.red : Colors.blue.shade700),
-                                                const SizedBox(width: 4),
-                                                Text("$labelText: $formattedSchedule", style: TextStyle(color: isDelivery ? Colors.red : Colors.blue.shade700, fontWeight: FontWeight.bold, fontSize: 12)),
-                                              ])
-                                           ] else ...[
-                                              Text(isDelivery ? "Belum Jadwal" : "Ambil Sendiri", style: TextStyle(color: Colors.grey.shade700, fontSize: 12))
-                                           ]
-                                       ]),
-                                     ),
-                                     Text("Rp ${NumberFormat.currency(locale: 'id', symbol: '', decimalDigits: 0).format(order['total_amount'])}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87))
-                                 ])
-                             ]),
+                                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                      Expanded(
+                                        child: Row(children: [
+                                            Icon(isDelivery ? Icons.motorcycle : Icons.store, size: 16, color: Colors.grey),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                "#${order['order_number']}",
+                                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                                overflow: TextOverflow.ellipsis,
+                                                maxLines: 1,
+                                              ),
+                                            ),
+                                        ]),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                           // --- TIMER DISPLAY ---
+                                           if (status != 'COMPLETE' && status != 'CANCELLED' && status != 'DONE') 
+                                               OrderTimerWidget(order: order),
+                                           
+                                           Container(
+                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                               decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
+                                               child: Text(status, style: TextStyle(color: badgeTextColor, fontSize: 10, fontWeight: FontWeight.bold))
+                                           ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                  const Divider(height: 24),
+                                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                      Expanded(
+                                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                            Text(
+                                              order['customer_name'] ?? 'Pelanggan',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            // TAMPILKAN JADWAL ATAU TIPE
+                                            if (formattedSchedule != '-') ...[
+                                               Row(children: [
+                                                 Icon(Icons.access_time, size: 12, color: isDelivery ? Colors.red : Colors.blue.shade700),
+                                                 const SizedBox(width: 4),
+                                                 Expanded(
+                                                   child: Text(
+                                                     "$labelText: $formattedSchedule",
+                                                     style: TextStyle(
+                                                       color: isDelivery ? Colors.red : Colors.blue.shade700,
+                                                       fontWeight: FontWeight.bold,
+                                                       fontSize: 12,
+                                                     ),
+                                                     overflow: TextOverflow.ellipsis,
+                                                     maxLines: 1,
+                                                   ),
+                                                 ),
+                                               ])
+                                            ] else ...[
+                                               Text(isDelivery ? "Belum Jadwal" : "Ambil Sendiri", style: TextStyle(color: Colors.grey.shade700, fontSize: 12))
+                                            ]
+                                        ]),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text("Rp ${NumberFormat.currency(locale: 'id', symbol: '', decimalDigits: 0).format(order['total_amount'])}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87))
+                                  ])
+                              ]),
                           )
                         ),
                       ),
