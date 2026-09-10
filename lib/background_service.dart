@@ -19,7 +19,7 @@ Future<void> initializeService() async {
       isForegroundMode: true,
 
       notificationChannelId: 'depotair_background_channel',
-      initialNotificationTitle: 'Depotair Service',
+      initialNotificationTitle: 'Warung Service',
       initialNotificationContent: 'Memantau pesanan baru...',
       foregroundServiceNotificationId: 888,
     ),

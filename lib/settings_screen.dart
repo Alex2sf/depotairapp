@@ -42,8 +42,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _userProfile = profile;
-        _storeNameController.text = prefs.getString('store_name') ?? 'Depot Air Minum';
-        _storeSloganController.text = prefs.getString('store_slogan') ?? 'Segar & Sehat';
+        _storeNameController.text = prefs.getString('store_name') ?? 'Warung';
+        _storeSloganController.text = prefs.getString('store_slogan') ?? 'Belanja Murah & Lengkap';
         _isLoading = false;
       });
     }

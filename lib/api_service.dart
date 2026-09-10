@@ -704,43 +704,162 @@ class ApiService {
   }
 
   // Menggantikan postCloseShift
-  // UPDATED: Hanya menerima amount dan onBehalfOfId
-  Future<Map<String, dynamic>> postDepositToMain(int amount, {int? onBehalfOfId}) async {
+  // UPDATED: Menerima amount, onBehalfOfId, notes, dan proofImagePath (foto bukti fisik)
+  Future<Map<String, dynamic>> postDepositToMain(
+    int amount, {
+    int? onBehalfOfId,
+    String? notes,
+    String? proofImagePath,
+  }) async {
     if (_token == null) return {'success': false, 'message': 'Token hilang.'};
-    final url = Uri.parse('$_baseUrl/cash/deposit-to-main'); 
-    
-    final Map<String, dynamic> body = {
-        'amount': amount,
-    };
-    if (onBehalfOfId != null) {
-        body['on_behalf_of'] = onBehalfOfId;
-    }
+    final url = Uri.parse('$_baseUrl/cash/deposit-to-main');
 
     try {
-        final response = await http.post(
-            url,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $_token',
-                'Accept': 'application/json',
-            },
-            body: json.encode(body),
-        );
-        
-        final Map<String, dynamic> data = json.decode(response.body);
-        
-        if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] == true) {
-            return {'success': true, 'message': data['message'] ?? 'Setoran berhasil dicatat.', 'data': data['data']};
-        } 
-        else if (response.statusCode >= 400 || data['success'] == false) {
-             final message = data['message'] as String? ?? 'Setoran gagal. Cek saldo kasir.';
-             return {'success': false, 'message': message};
-        } 
-        else {
-            return {'success': false, 'message': 'Kesalahan server tak terduga: ${response.statusCode}'};
+      if (proofImagePath != null && proofImagePath.isNotEmpty) {
+        var request = http.MultipartRequest('POST', url)
+          ..headers['Authorization'] = 'Bearer $_token'
+          ..fields['amount'] = amount.toString();
+
+        if (onBehalfOfId != null) {
+          request.fields['on_behalf_of'] = onBehalfOfId.toString();
         }
+        if (notes != null && notes.isNotEmpty) {
+          request.fields['notes'] = notes;
+        }
+
+        request.files.add(await http.MultipartFile.fromPath('proof_image', proofImagePath));
+
+        var streamedResponse = await request.send();
+        final responseBody = await streamedResponse.stream.bytesToString();
+        final Map<String, dynamic> data = json.decode(responseBody);
+
+        if ((streamedResponse.statusCode == 200 || streamedResponse.statusCode == 201) && data['success'] == true) {
+          return {'success': true, 'message': data['message'] ?? 'Setoran berhasil dicatat.', 'data': data['data']};
+        } else {
+          return {'success': false, 'message': data['message'] ?? 'Setoran gagal.'};
+        }
+      } else {
+        final Map<String, dynamic> body = {
+          'amount': amount,
+        };
+        if (onBehalfOfId != null) {
+          body['on_behalf_of'] = onBehalfOfId;
+        }
+        if (notes != null && notes.isNotEmpty) {
+          body['notes'] = notes;
+        }
+
+        final response = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_token',
+            'Accept': 'application/json',
+          },
+          body: json.encode(body),
+        );
+
+        final Map<String, dynamic> data = json.decode(response.body);
+
+        if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] == true) {
+          return {'success': true, 'message': data['message'] ?? 'Setoran berhasil dicatat.', 'data': data['data']};
+        } else {
+          return {'success': false, 'message': data['message'] ?? 'Setoran gagal. Cek saldo kasir.'};
+        }
+      }
     } catch (e) {
-        return {'success': false, 'message': 'Error jaringan: $e'};
+      return {'success': false, 'message': 'Error jaringan: $e'};
+    }
+  }
+
+  // ==========================================================
+  // --- ENDPOINT SHIFT KASIR & REKONSILIASI ---
+  // ==========================================================
+
+  Future<Map<String, dynamic>?> getCurrentShift() async {
+    if (_token == null) return null;
+    final url = Uri.parse('$_baseUrl/shifts/current');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> postCloseShift({
+    required int actualCash,
+    String? notes,
+  }) async {
+    if (_token == null) return {'success': false, 'message': 'Token hilang.'};
+    final url = Uri.parse('$_baseUrl/shifts/close');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'actual_cash': actualCash,
+          if (notes != null) 'notes': notes,
+        }),
+      );
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data;
+      }
+      return {'success': false, 'message': data['message'] ?? 'Gagal menutup shift.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Error jaringan: $e'};
+    }
+  }
+
+  Future<List<dynamic>> getShiftHistory({String? date}) async {
+    if (_token == null) return [];
+    String query = date != null ? '?date=$date' : '';
+    final url = Uri.parse('$_baseUrl/shifts/history$query');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $_token', 'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<dynamic>> getDepositHistory({String? date}) async {
+    if (_token == null) return [];
+    String query = date != null ? '?date=$date' : '';
+    final url = Uri.parse('$_baseUrl/shifts/deposits$query');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $_token', 'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      return [];
     }
   }
 
@@ -907,6 +1026,107 @@ class ApiService {
       }
     } catch (e) {
       return {'success': false, 'message': 'Error jaringan: $e'};
+    }
+  }
+
+  // ==========================================================
+  // --- ENDPOINT BELANJA KASIR (Uang Laci -> Stok / Operasional) ---
+  // ==========================================================
+
+  Future<Map<String, dynamic>> postCashierPurchase({
+    required String category, // 'STOCK' or 'OPERATIONAL'
+    required int amount,
+    required String description,
+    int? productId,
+    int? quantity,
+    String? proofImagePath,
+  }) async {
+    if (_token == null) return {'success': false, 'message': 'Token hilang.'};
+    final url = Uri.parse('$_baseUrl/purchases');
+
+    try {
+      if (proofImagePath != null && proofImagePath.isNotEmpty) {
+        var request = http.MultipartRequest('POST', url)
+          ..headers['Authorization'] = 'Bearer $_token'
+          ..fields['category'] = category
+          ..fields['amount'] = amount.toString()
+          ..fields['description'] = description;
+
+        if (productId != null) {
+          request.fields['product_id'] = productId.toString();
+        }
+        if (quantity != null) {
+          request.fields['quantity'] = quantity.toString();
+        }
+
+        request.files.add(await http.MultipartFile.fromPath('proof_image', proofImagePath));
+
+        var streamedResponse = await request.send();
+        final responseBody = await streamedResponse.stream.bytesToString();
+        final Map<String, dynamic> data = json.decode(responseBody);
+
+        if ((streamedResponse.statusCode == 200 || streamedResponse.statusCode == 201) && data['success'] == true) {
+          return {'success': true, 'message': data['message'] ?? 'Belanja berhasil dicatat!', 'data': data['data']};
+        } else {
+          return {'success': false, 'message': data['message'] ?? 'Gagal mencatat belanja.'};
+        }
+      } else {
+        final Map<String, dynamic> body = {
+          'category': category,
+          'amount': amount,
+          'description': description,
+        };
+        if (productId != null) body['product_id'] = productId;
+        if (quantity != null) body['quantity'] = quantity;
+
+        final response = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_token',
+            'Accept': 'application/json',
+          },
+          body: json.encode(body),
+        );
+
+        final Map<String, dynamic> data = json.decode(response.body);
+
+        if ((response.statusCode == 200 || response.statusCode == 201) && data['success'] == true) {
+          return {'success': true, 'message': data['message'] ?? 'Belanja berhasil dicatat!', 'data': data['data']};
+        } else {
+          return {'success': false, 'message': data['message'] ?? 'Gagal mencatat belanja.'};
+        }
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Error jaringan: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCashierPurchases({String? date, String? category, int page = 1}) async {
+    if (_token == null) return null;
+    final Map<String, dynamic> queryParams = {
+      'page': page.toString(),
+    };
+    if (date != null && date.isNotEmpty) queryParams['date'] = date;
+    if (category != null && category.isNotEmpty) queryParams['category'] = category;
+
+    final url = Uri.parse('$_baseUrl/purchases/history').replace(queryParameters: queryParams);
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (e) {
+      return null;
     }
   }
 }

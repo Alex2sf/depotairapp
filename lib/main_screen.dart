@@ -6,11 +6,13 @@ import 'api_service.dart';
 import 'login_screen.dart';
 import 'cash_transaction_screen.dart';
 import 'close_shift_screen.dart';
+import 'deposit_to_main_screen.dart';
 import 'cash_dashboard_screen.dart';
 import 'order_history_screen.dart';
 import 'settings_screen.dart';
 import 'widgets/custom_dialogs.dart';
 import 'stock_adjustment_screen.dart';
+import 'cashier_purchase_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final int initialIndex;
@@ -146,8 +148,9 @@ class _MainScreenState extends State<MainScreen> {
                       childAspectRatio: 1.4,
                       children: [
                          _quickActionCard("Buat Pesanan", Icons.add_shopping_cart, Colors.blue, () => _onItemTapped(1)),
-                         _quickActionCard("Kelola Kas", Icons.dashboard_customize_outlined, Colors.indigo, () => _navigateToInternal(const CashDashboardScreen())),
+                         _quickActionCard("Setor Kas Besar", Icons.account_balance_wallet_outlined, Colors.purple, () => _navigateToInternal(const DepositToMainScreen())),
                          _quickActionCard("Tutup Shift", Icons.lock_clock_outlined, Colors.orange, () => _navigateToInternal(const CloseShiftScreen())),
+                         _quickActionCard("Kelola Kas", Icons.dashboard_customize_outlined, Colors.indigo, () => _navigateToInternal(const CashDashboardScreen())),
                          _quickActionCard("Stok Opname", Icons.inventory_2_outlined, Colors.teal, () => _navigateToInternal(const OpnameScreen())),
                          _quickActionCard("Kelola Stok", Icons.sync_alt, Colors.deepOrange, () => _navigateToInternal(const StockAdjustmentScreen())),
                       ],
@@ -156,6 +159,7 @@ class _MainScreenState extends State<MainScreen> {
                     const SizedBox(height: 24),
                     const Text("Lainnya", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
                     const SizedBox(height: 12),
+                    _listActionItem("Belanja Kasir (Uang Laci)", Icons.shopping_bag, Colors.teal, () => _navigateToInternal(const CashierPurchaseScreen())),
                     _listActionItem("Riwayat Transaksi", Icons.receipt_long, Colors.purple, () => _onItemTapped(2)),
                     _listActionItem("Catat Pengeluaran", Icons.money_off, Colors.red, () => _navigateToInternal(const CashTransactionScreen())),
                  ],

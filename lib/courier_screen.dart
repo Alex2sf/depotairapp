@@ -7,6 +7,7 @@ import 'courier_detail_screen.dart';
 import 'role_based_router.dart';
 import 'widgets/custom_dialogs.dart';
 import 'widgets/order_timer_widget.dart';
+import 'widgets/courier_reminder_dialog.dart';
 
 class CourierScreen extends StatefulWidget {
   const CourierScreen({super.key});
@@ -21,6 +22,12 @@ class _CourierScreenState extends State<CourierScreen> {
   bool _isLoading = true;
   String? _selectedStatus; // null means ALL
   String? _filterDate;     // null means ALL, 'today' means TODAY
+
+  // Reminder pop-up settings
+  static const int _overdueThresholdMinutes = 60; // 1 Jam batas normal
+  static const int _snoozeMinutes = 15; // Tunda 15 menit jika pilih "Masih di Jalan"
+  final Map<String, DateTime> _snoozedOrders = {}; // orderNumber -> snoozeUntil
+  bool _isCheckingReminder = false;
 
   @override
   void initState() {
@@ -40,6 +47,89 @@ class _CourierScreenState extends State<CourierScreen> {
         _orders = orders;
         _isLoading = false;
       });
+      // Periksa apakah ada order ON_DELIVERY yang melebihi batas waktu
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkOverdueDeliveries();
+      });
+    }
+  }
+
+  DateTime? _parseOrderTimestamp(String? timestampStr) {
+    if (timestampStr == null || timestampStr.isEmpty || timestampStr == '-') return null;
+    try {
+      return DateTime.parse(timestampStr).toLocal();
+    } catch (_) {
+      try {
+        return DateFormat('dd/MM/yyyy HH:mm').parse(timestampStr);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Future<void> _checkOverdueDeliveries() async {
+    if (!mounted || _isCheckingReminder || _orders.isEmpty) return;
+
+    final now = DateTime.now();
+    Map<String, dynamic>? mostOverdueOrder;
+    int maxMinutesElapsed = 0;
+
+    for (var rawOrder in _orders) {
+      if (rawOrder is! Map<String, dynamic>) continue;
+      final status = (rawOrder['status'] ?? '').toString().toUpperCase();
+      if (status != 'ON_DELIVERY') continue;
+
+      final orderNumber = rawOrder['order_number']?.toString();
+      if (orderNumber == null || orderNumber.isEmpty) continue;
+
+      // Cek apakah order ini sedang di-snooze
+      final snoozeUntil = _snoozedOrders[orderNumber];
+      if (snoozeUntil != null && now.isBefore(snoozeUntil)) {
+        continue; // Masih dalam masa tunda
+      }
+
+      // Hitung selisih waktu dari delivery_time (atau ready_time / created_at)
+      final deliveryTime = _parseOrderTimestamp(rawOrder['delivery_time']?.toString())
+          ?? _parseOrderTimestamp(rawOrder['ready_time']?.toString())
+          ?? _parseOrderTimestamp(rawOrder['created_at']?.toString());
+
+      if (deliveryTime == null) continue;
+
+      final elapsedMinutes = now.difference(deliveryTime).inMinutes;
+      if (elapsedMinutes >= _overdueThresholdMinutes && elapsedMinutes > maxMinutesElapsed) {
+        maxMinutesElapsed = elapsedMinutes;
+        mostOverdueOrder = rawOrder;
+      }
+    }
+
+    if (mostOverdueOrder != null && mounted) {
+      _isCheckingReminder = true;
+      final orderNumber = mostOverdueOrder['order_number']?.toString() ?? '';
+
+      final action = await showCourierReminderDialog(
+        context: context,
+        order: mostOverdueOrder,
+        minutesElapsed: maxMinutesElapsed,
+      );
+
+      _isCheckingReminder = false;
+
+      if (!mounted) return;
+
+      if (action == CourierReminderAction.alreadyFinished) {
+        // Arahkan kurir langsung ke detail order untuk foto bukti & selesaikan
+        _navigateToDetail(orderNumber);
+      } else if (action == CourierReminderAction.stillOnTheWay) {
+        // Tunda reminder untuk order ini selama 15 menit
+        _snoozedOrders[orderNumber] = DateTime.now().add(const Duration(minutes: _snoozeMinutes));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Pengingat untuk #$orderNumber ditunda $_snoozeMinutes menit."),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.blueGrey,
+          ),
+        );
+      }
     }
   }
 

@@ -57,8 +57,8 @@ class PrinterService {
 
     // 2. Siapkan Data
     final prefs = await SharedPreferences.getInstance();
-    final storeName = prefs.getString('store_name') ?? 'Depot Air Minum';
-    final storeSlogan = prefs.getString('store_slogan') ?? 'Segar & Sehat';
+    final storeName = prefs.getString('store_name') ?? 'Warung';
+    final storeSlogan = prefs.getString('store_slogan') ?? 'Belanja Murah & Lengkap';
 
     final items = order['items'] as List<dynamic>? ?? [];
     final total = double.tryParse(order['total_amount'].toString()) ?? 0;

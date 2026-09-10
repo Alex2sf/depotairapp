@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'api_service.dart';
+import 'owner_shift_monitoring_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -180,8 +181,23 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         ),
 
         const SizedBox(height: 24),
-        const Text("POSISI KAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
-        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text("POSISI KAS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OwnerShiftMonitoringScreen()),
+                );
+              },
+              icon: const Icon(Icons.history, size: 16, color: Colors.blue),
+              label: const Text("Log Shift & Bukti Setor", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         
         Row(
            children: [
