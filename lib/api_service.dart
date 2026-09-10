@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'offline_service.dart';
 
 // 2. GANTI KE IP INI JIKA PAKAI HP ASLI
-const String _baseUrl = 'http://hydroexpert.my.id/api'; // PRODUCTION
+const String _baseUrl = 'https://hydroexpert.my.id/api'; // PRODUCTION
 // 2. GANTI KE IP INI JIKA PAKAI HP ASLI / EMULATOR
 // const String _baseUrl = 'http://192.168.1.10/depot/api'; // LOCAL LAN
 // const String _baseUrl = 'http://10.0.2.2:8000/api'; // KHUSUS EMULATOR + ARTISAN SERVE
