@@ -435,27 +435,43 @@ class _CourierScreenState extends State<CourierScreen> {
                   const SizedBox(height: 12),
                   const Divider(),
                   Row(
-                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                      children: [
-                        Row(
-                           children: [
-                              OrderTimerWidget(order: order),
-                              if (order['delivery_scheduled_at'] != null && order['delivery_scheduled_at'] != 'Sekarang')
-                                 Container(
-                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                   decoration: BoxDecoration(color: Colors.indigo.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.indigo.shade100)),
-                                   child: Row(
-                                     children: [
-                                       const Icon(Icons.access_time_filled, size: 14, color: Colors.indigo),
-                                       const SizedBox(width: 6),
-                                       Text("Jadwal: ${_formatDate(order['delivery_scheduled_at'])}", style: TextStyle(fontSize: 13, color: Colors.indigo.shade900, fontWeight: FontWeight.bold)),
-                                     ],
-                                   ),
-                                 ),
-                           ],
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                               OrderTimerWidget(order: order),
+                               if (order['delivery_scheduled_at'] != null && order['delivery_scheduled_at'] != 'Sekarang')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.indigo.shade50, 
+                                      borderRadius: BorderRadius.circular(8), 
+                                      border: Border.all(color: Colors.indigo.shade100),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.access_time_filled, size: 14, color: Colors.indigo),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          "Jadwal: ${_formatDate(order['delivery_scheduled_at'])}", 
+                                          style: TextStyle(
+                                            fontSize: 12, 
+                                            color: Colors.indigo.shade900, 
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            ],
+                          ),
                         ),
-                        
-                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey)
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey)
                      ],
                   )
                ],
