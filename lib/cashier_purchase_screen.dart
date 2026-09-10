@@ -123,6 +123,178 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
     }
   }
 
+  void _showProductSearchSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = _products.where((p) {
+              final name = (p['name'] ?? '').toString().toLowerCase();
+              return name.contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.only(
+                top: 16,
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Pilih Barang / Stok',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Search Bar
+                  TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Cari nama barang (contoh: galon, tutup)...',
+                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                      prefixIcon: const Icon(Icons.search, color: Color(0xFF0284C7)),
+                      filled: true,
+                      fillColor: const Color(0xFFF1F5F9),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setModalState(() {
+                        searchQuery = val.trim();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // List Barang
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade300),
+                                const SizedBox(height: 8),
+                                Text(
+                                  searchQuery.isEmpty ? 'Tidak ada data produk' : 'Barang "$searchQuery" tidak ditemukan',
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                            itemBuilder: (context, idx) {
+                              final prod = filtered[idx];
+                              final isSelected = prod['id'] == _selectedProductId;
+                              return InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedProductId = prod['id'];
+                                    if (_descController.text.isEmpty || _descController.text.startsWith('Beli ')) {
+                                      _descController.text = 'Beli ${prod['name']}';
+                                    }
+                                  });
+                                  Navigator.pop(context);
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFFE0F2FE) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          Icons.inventory_2_rounded,
+                                          size: 20,
+                                          color: isSelected ? Colors.white : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              prod['name'] ?? '-',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                                color: isSelected ? const Color(0xFF0369A1) : const Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Stok Tersedia: ${prod['stock']} ${prod['unit'] ?? 'pcs'}',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        const Icon(Icons.check_circle_rounded, color: Color(0xFF0284C7), size: 20),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showImageSourceDialog() {
     showModalBottomSheet(
       context: context,
@@ -481,37 +653,70 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
                   child: const Text('Belum ada data produk tersedia di sistem.', style: TextStyle(color: Colors.orange)),
                 )
               else
-                DropdownButtonFormField<int>(
-                  value: _selectedProductId,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                  ),
-                  items: _products.map((p) {
-                    return DropdownMenuItem<int>(
-                      value: p['id'] as int,
-                      child: Row(
-                        children: [
-                          Text(p['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 8),
-                          Text('(Stok: ${p['stock']} ${p['unit']})', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                Builder(
+                  builder: (context) {
+                  final selectedProd = _products.firstWhere(
+                    (p) => p['id'] == _selectedProductId,
+                    orElse: () => null,
+                  );
+
+                  return InkWell(
+                    onTap: _showProductSearchSheet,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade300),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
                         ],
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedProductId = val;
-                      final selectedProd = _products.firstWhere((p) => p['id'] == val, orElse: () => null);
-                      if (selectedProd != null && _descController.text.isEmpty) {
-                        _descController.text = 'Beli ${selectedProd['name']}';
-                      }
-                    });
-                  },
-                ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.search_rounded, color: Color(0xFF0284C7), size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedProd != null ? selectedProd['name'] : 'Klik untuk Cari / Pilih Barang',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: selectedProd != null ? const Color(0xFF0F172A) : Colors.grey.shade500,
+                                  ),
+                                ),
+                                if (selectedProd != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Stok saat ini: ${selectedProd['stock']} ${selectedProd['unit'] ?? 'pcs'}',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF64748B), size: 28),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 16),
 
               // INPUT JUMLAH BARANG (QUANTITY)

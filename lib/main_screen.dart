@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'product_screen.dart';
 import 'opname_screen.dart';
 import 'api_service.dart';
-import 'cash_transaction_screen.dart';
 import 'close_shift_screen.dart';
 import 'deposit_to_main_screen.dart';
 import 'order_history_screen.dart';
@@ -422,15 +421,6 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _buildFullWidthTile(
-                      title: "Catat Pengeluaran Lain",
-                      subtitle: "Biaya listrik, konsumsi, atau modal kas depot",
-                      icon: Icons.money_off_rounded,
-                      badgeColor: const Color(0xFFE11D48),
-                      bgColor: const Color(0xFFFFE4E6),
-                      onTap: () => _navigateToInternal(const CashTransactionScreen()),
-                    ),
                   ],
                 ),
               ),
@@ -633,21 +623,29 @@ class _MainScreenState extends State<MainScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today_rounded, color: Colors.white.withValues(alpha: 0.9), size: 14),
-                    const SizedBox(width: 8),
-                    Text(
-                      dateNow,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today_rounded, color: Colors.white.withValues(alpha: 0.9), size: 14),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          dateNow,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.water_drop, color: Colors.cyanAccent, size: 14),
                     const SizedBox(width: 4),
