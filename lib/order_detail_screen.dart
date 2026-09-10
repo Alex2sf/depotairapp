@@ -29,26 +29,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialOrder != null) {
-      _orderDetail = Map<String, dynamic>.from(widget.initialOrder!);
-      _isLoading = false;
-    }
     _fetchOrderDetail();
   }
 
   Future<void> _fetchOrderDetail() async {
-    if (_orderDetail == null) {
-      setState(() => _isLoading = true);
-    }
+    setState(() => _isLoading = true);
     final detail = await _apiService.getOrderDetail(widget.orderNumber);
     print("DEBUG CASHIER DETAIL RESPONSE: $detail"); // Cek field timestamp
     if (mounted) {
       setState(() {
         if (detail != null) {
           _orderDetail = {
-            if (widget.initialOrder != null) ...widget.initialOrder!,
             ...detail,
-            if (detail['created_at'] == null && widget.initialOrder?['created_at'] != null)
+            if ((detail['created_at'] == null || detail['created_at'] == '-') && widget.initialOrder?['created_at'] != null)
               'created_at': widget.initialOrder!['created_at'],
           };
         }
@@ -536,7 +529,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             children: [
                                 Icon(Icons.person, size: 16, color: Colors.blue.shade700),
                                 const SizedBox(width: 8),
-                                Expanded(child: Text(detail['customer']['name'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
+                                Expanded(child: Text(detail['customer']?['name'] ?? detail['customer_name'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold))),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -544,7 +537,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             children: [
                                 Icon(Icons.phone, size: 16, color: Colors.blue.shade700),
                                 const SizedBox(width: 8),
-                                Text(detail['customer']['phone'] ?? '-'),
+                                Text(detail['customer']?['phone'] ?? detail['customer_phone'] ?? '-'),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -553,18 +546,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             children: [
                                 Icon(Icons.location_on, size: 16, color: Colors.blue.shade700),
                                 const SizedBox(width: 8),
-                                Expanded(child: Text(detail['customer']['address'] ?? '-')),
+                                Expanded(child: Text(detail['customer']?['address'] ?? detail['address'] ?? '-')),
                             ],
                           ),
                           
                           // GMAPS BUTTON
-                          if (detail['customer']['gmaps_url'] != null)
+                          if (detail['customer']?['gmaps_url'] != null || detail['gmaps_url'] != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 12),
                                 child: SizedBox(
                                     width: double.infinity,
                                     child: OutlinedButton.icon(
-                                        onPressed: () => _launchUrl(detail['customer']['gmaps_url']),
+                                        onPressed: () => _launchUrl(detail['customer']?['gmaps_url'] ?? detail['gmaps_url']),
                                         icon: const Icon(Icons.map, size: 16),
                                         label: const Text('Buka Google Maps'),
                                         style: OutlinedButton.styleFrom(foregroundColor: Colors.blue.shade700),
@@ -822,7 +815,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               _parseDate(detail['updated_at']);
       
       if (completedAt == null && detail['delivery_proof'] != null) {
-          completedAt = _parseDate(detail['delivery_proof']['uploaded_at']);
+          completedAt = _parseDate(detail['delivery_proof']?['uploaded_at']);
       }
 
       // 2. Cari Start Time
