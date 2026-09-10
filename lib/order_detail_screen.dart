@@ -54,12 +54,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   String _formatDate(dynamic dateString) {
-      if (dateString == null || dateString is! String) return '-';
-      try {
-          return DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(dateString).toLocal());
-      } catch (e) {
-          return dateString;
+      if (dateString == null) return '-';
+      final str = dateString.toString().trim();
+      if (str.isEmpty || str == '-') return '-';
+
+      // Jika sudah terformat (misal: "10 Sep 2026, 19:31"), langsung kembalikan
+      if (str.contains(' ') && (str.contains('Jan') || str.contains('Feb') || str.contains('Mar') || str.contains('Apr') || str.contains('Mei') || str.contains('Jun') || str.contains('Jul') || str.contains('Agu') || str.contains('Sep') || str.contains('Okt') || str.contains('Nov') || str.contains('Des'))) {
+        return str;
       }
+
+      final parsed = _parseDate(str);
+      if (parsed != null) {
+        try {
+          return DateFormat('dd MMM yyyy, HH:mm', 'id').format(parsed.toLocal());
+        } catch (_) {
+          return DateFormat('dd MMM yyyy, HH:mm').format(parsed.toLocal());
+        }
+      }
+
+      return str;
   }
 
   Future<bool> _showConfirmationDialog(String title, String content) async {
@@ -417,11 +430,57 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Center(
                             child: Column(
                               children: [
-                                const Icon(Icons.receipt_long, color: Colors.grey, size: 32),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7), size: 28),
+                                ),
+                                const SizedBox(height: 10),
+                                // TANGGAL & WAKTU TRANSAKSI
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF64748B)),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _formatDate(detail['formatted_created_at'] ?? detail['created_at']),
+                                        style: const TextStyle(
+                                          color: Color(0xFF334155),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 const SizedBox(height: 8),
-                                Text(_formatDate(detail['created_at']), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                                const SizedBox(height: 4),
-                                Text(detail['payment_type'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE0F2FE),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    detail['payment_type'] ?? '-',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      color: Color(0xFF0369A1),
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
