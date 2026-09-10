@@ -8,8 +8,13 @@ import 'widgets/custom_dialogs.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final String orderNumber;
+  final Map<String, dynamic>? initialOrder;
 
-  const OrderDetailScreen({super.key, required this.orderNumber});
+  const OrderDetailScreen({
+    super.key, 
+    required this.orderNumber,
+    this.initialOrder,
+  });
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
@@ -24,16 +29,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialOrder != null) {
+      _orderDetail = Map<String, dynamic>.from(widget.initialOrder!);
+      _isLoading = false;
+    }
     _fetchOrderDetail();
   }
 
   Future<void> _fetchOrderDetail() async {
-    setState(() => _isLoading = true);
+    if (_orderDetail == null) {
+      setState(() => _isLoading = true);
+    }
     final detail = await _apiService.getOrderDetail(widget.orderNumber);
     print("DEBUG CASHIER DETAIL RESPONSE: $detail"); // Cek field timestamp
     if (mounted) {
       setState(() {
-        _orderDetail = detail;
+        if (detail != null) {
+          _orderDetail = {
+            if (widget.initialOrder != null) ...widget.initialOrder!,
+            ...detail,
+            if (detail['created_at'] == null && widget.initialOrder?['created_at'] != null)
+              'created_at': widget.initialOrder!['created_at'],
+          };
+        }
         _isLoading = false;
       });
     }
@@ -50,7 +68,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (value is num) return value;
     if (value is String) return num.tryParse(value) ?? 0;
     return 0;
-    return 0;
   }
 
   String _formatDate(dynamic dateString) {
@@ -58,21 +75,46 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       final str = dateString.toString().trim();
       if (str.isEmpty || str == '-') return '-';
 
-      // Jika sudah terformat (misal: "10 Sep 2026, 19:31"), langsung kembalikan
-      if (str.contains(' ') && (str.contains('Jan') || str.contains('Feb') || str.contains('Mar') || str.contains('Apr') || str.contains('Mei') || str.contains('Jun') || str.contains('Jul') || str.contains('Agu') || str.contains('Sep') || str.contains('Okt') || str.contains('Nov') || str.contains('Des'))) {
+      // Jika sudah terformat seperti "10/09/2026 19:29"
+      if (RegExp(r'^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$').hasMatch(str)) {
         return str;
       }
 
       final parsed = _parseDate(str);
       if (parsed != null) {
-        try {
-          return DateFormat('dd MMM yyyy, HH:mm', 'id').format(parsed.toLocal());
-        } catch (_) {
-          return DateFormat('dd MMM yyyy, HH:mm').format(parsed.toLocal());
-        }
+        return DateFormat('dd/MM/yyyy HH:mm').format(parsed.toLocal());
       }
 
       return str;
+  }
+
+  String _getDisplayTransactionTime(Map<String, dynamic> detail) {
+    // 1. Cek semua variasi field tanggal transaksi
+    dynamic raw = detail['formatted_created_at'] ?? 
+                  detail['created_at'] ?? 
+                  detail['transaction_time'] ?? 
+                  detail['date'] ?? 
+                  detail['ready_time'] ?? 
+                  detail['completed_time'] ?? 
+                  detail['delivery_time'] ?? 
+                  detail['delivery_scheduled_at'];
+
+    if (raw != null) {
+      final formatted = _formatDate(raw);
+      if (formatted != '-') return formatted;
+    }
+
+    // 2. Fallback cerdas: ekstrak dari nomor order jika API server live belum kirim created_at
+    // Contoh: #ORD20260910016035 -> 10/09/2026
+    final ord = widget.orderNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    if (ord.length >= 8) {
+      final year = ord.substring(0, 4);
+      final month = ord.substring(4, 6);
+      final day = ord.substring(6, 8);
+      return "$day/$month/$year";
+    }
+
+    return '-';
   }
 
   Future<bool> _showConfirmationDialog(String title, String content) async {
@@ -442,23 +484,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 const SizedBox(height: 10),
                                 // TANGGAL & WAKTU TRANSAKSI
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF8FAFC),
+                                    color: const Color(0xFFF0F9FF),
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(color: const Color(0xFFBAE6FD)),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF64748B)),
+                                      const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF0284C7)),
                                       const SizedBox(width: 6),
                                       Text(
-                                        _formatDate(detail['formatted_created_at'] ?? detail['created_at']),
+                                        "Waktu: ${_getDisplayTransactionTime(detail)}",
                                         style: const TextStyle(
-                                          color: Color(0xFF334155),
+                                          color: Color(0xFF0284C7),
                                           fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ],

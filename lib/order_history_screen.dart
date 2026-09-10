@@ -429,7 +429,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
                           onTap: () async {
-                               await Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderNumber: order['order_number'])));
+                               await Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderNumber: order['order_number'], initialOrder: order)));
                                _fetchOrders();
                           },
                           child: Padding(

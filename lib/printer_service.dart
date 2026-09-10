@@ -66,7 +66,14 @@ class PrinterService {
 
     // Format Uang & Tanggal
     final currency = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final date = DateTime.now();
+    DateTime date = DateTime.now();
+    final rawDate = order['created_at'] ?? order['formatted_created_at'] ?? order['transaction_time'];
+    if (rawDate != null) {
+      final parsed = DateTime.tryParse(rawDate.toString());
+      if (parsed != null) {
+        date = parsed.toLocal();
+      }
+    }
     final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(date);
 
     // 3. Generate Bytes Struk
