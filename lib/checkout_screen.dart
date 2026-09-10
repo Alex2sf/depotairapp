@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +33,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _orderType = 'SELF_PICKUP';
   String _paymentType = 'TUNAI';
   DateTime? _deliverySchedule;
+  bool _isScheduledDelivery = false; // false = Antar Sekarang, true = Jadwalkan Nanti
+  int _deliveryEstMinutes = 30; // default 30 menit
   bool _isSavingCustomer = false;
   bool _isCheckingOut = false;
 
@@ -138,34 +139,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     // Auto-save customer if not yet saved but ID is null
     if (_customerId == null) await _processCreateOrSelectCustomer();
+    if (!mounted) return;
     if (_customerId == null) return; // Save failed
 
     if (cart.items.isEmpty) {
          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Keranjang Kosong!'))); 
          return; 
     }
-    if (_orderType == 'DELIVERY' && _addressController.text.trim().isEmpty) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alamat Wajib Diisi untuk Delivery!'), backgroundColor: Colors.red));
-         return;
-    }
-    if (_orderType == 'DELIVERY' && _deliverySchedule == null) {
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jadwal Kirim Wajib Diisi!'), backgroundColor: Colors.red)); 
-         return;
+    if (_orderType == 'DELIVERY') {
+      if (_addressController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Alamat Wajib Diisi untuk Delivery!'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+      if (_isScheduledDelivery && _deliverySchedule == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Jadwal Kirim Wajib Diisi!'), backgroundColor: Colors.red),
+        );
+        return;
+      }
     }
 
     setState(() => _isCheckingOut = true);
+
+    DateTime? scheduleToSend;
+    if (_orderType == 'DELIVERY') {
+      scheduleToSend = _isScheduledDelivery ? _deliverySchedule : DateTime.now();
+    }
 
     final orderData = {
       'customer_id': _customerId,
       'order_type': _orderType,
       'payment_type': _paymentType,
       'delivery_address': _orderType == 'DELIVERY' ? _addressController.text.trim() : null,
-      'address_link': _orderType == 'DELIVERY' ? _gmapsLinkController.text.trim() : null,
-      'delivery_fee': int.tryParse(_deliveryFeeController.text) ?? 0,
+      'address_link': _orderType == 'DELIVERY' 
+          ? (_gmapsLinkController.text.trim().isEmpty ? null : _gmapsLinkController.text.trim()) 
+          : null,
+      'delivery_fee': _orderType == 'DELIVERY' ? (int.tryParse(_deliveryFeeController.text) ?? 0) : 0,
       'additional_fee': int.tryParse(_additionalFeeController.text) ?? 0,
       'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-      'delivery_scheduled_at': _orderType == 'DELIVERY' ? _deliverySchedule?.toIso8601String() : null, 
-      'prepared_minutes': int.tryParse(_preparedMinutesController.text), // Kirim null jika kosong
+      'delivery_scheduled_at': scheduleToSend?.toIso8601String(), 
+      'prepared_minutes': _orderType == 'DELIVERY' ? _deliveryEstMinutes : null,
       'items': cart.items.map((i) => {'product_id': i.id, 'quantity': i.quantity}).toList(),
     };
 
@@ -219,22 +234,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _showSuccessDialog(Map<String, dynamic> order) {
+    bool isPickup = _orderType == 'SELF_PICKUP';
     showDialog(
       context: context, barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-           const Icon(Icons.check_circle, color: Colors.green, size: 80),
-           const SizedBox(height: 16),
-           const Text("Order Berhasil!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-           Text("#${order['order_number']}", style: const TextStyle(color: Colors.grey)),
+           Icon(
+             isPickup ? Icons.check_circle : Icons.delivery_dining, 
+             color: isPickup ? Colors.green : Colors.blue.shade700, 
+             size: 70,
+           ),
+           const SizedBox(height: 14),
+           Text(
+             isPickup ? "Pesanan Selesai!" : "Order Berhasil Dibuat!", 
+             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+           ),
+           const SizedBox(height: 4),
+           Text("#${order['order_number']}", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+           const SizedBox(height: 10),
+           Container(
+             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+             decoration: BoxDecoration(
+               color: isPickup ? Colors.green.shade50 : Colors.blue.shade50,
+               borderRadius: BorderRadius.circular(8),
+               border: Border.all(color: isPickup ? Colors.green.shade200 : Colors.blue.shade200),
+             ),
+             child: Text(
+               isPickup ? "⚡ AMBIL SENDIRI • STATUS COMPLETE" : "🚚 DIANTAR • MENUNGGU KURIR",
+               style: TextStyle(
+                 fontSize: 11, 
+                 fontWeight: FontWeight.bold, 
+                 color: isPickup ? Colors.green.shade800 : Colors.blue.shade800,
+               ),
+             ),
+           ),
            const SizedBox(height: 20),
            SizedBox(
              width: double.infinity,
              child: ElevatedButton(
-                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                 onPressed: () => Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const RoleBasedRouter()), (r)=>false),
-                 child: const Text("Selesai")
+                 style: ElevatedButton.styleFrom(
+                   backgroundColor: isPickup ? Colors.green : Colors.blue.shade800,
+                   foregroundColor: Colors.white,
+                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                   padding: const EdgeInsets.symmetric(vertical: 12),
+                 ),
+                 onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                   MaterialPageRoute(builder: (_) => const RoleBasedRouter()), 
+                   (r) => false,
+                 ),
+                 child: const Text("Selesai & Ke Beranda", style: TextStyle(fontWeight: FontWeight.bold))
              ),
            )
         ]),
@@ -245,7 +294,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartModel>(context);
-    final deliveryFee = int.tryParse(_deliveryFeeController.text) ?? 0;
+    final deliveryFee = _orderType == 'DELIVERY' ? (int.tryParse(_deliveryFeeController.text) ?? 0) : 0;
     final additionalFee = int.tryParse(_additionalFeeController.text) ?? 0;
     final total = cart.subtotal + deliveryFee + additionalFee;
 
@@ -317,43 +366,241 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildOrderTypeCard() {
     bool isDelivery = _orderType == 'DELIVERY';
     return _card(
-      title: 'METODE & WAKTU',
-      icon: Icons.access_time,
-      child: Column(children: [
-        Container(
-          height: 45,
-          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-          child: Row(children: [
-            _toggleBtn('Ambil Sendiri', !isDelivery, () => setState(() => _orderType = 'SELF_PICKUP')),
-            _toggleBtn('Diantar (Delivery)', isDelivery, () => setState(() => _orderType = 'DELIVERY')),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        _input(_preparedMinutesController, "Estimasi Selesai (Menit)", icon: Icons.timer, type: TextInputType.number),
-        if (isDelivery) ...[
-          const SizedBox(height: 16),
-          _input(_addressController, "Alamat Lengkap", icon: Icons.home, maxLines: 2),
-          const SizedBox(height: 10),
-          Row(children: [
-             Expanded(child: InkWell(
-               onTap: _pickDateTime,
-               child: Container(
-                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-                 decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
-                 child: Row(children: [
-                    const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(_scheduleController.text.isEmpty ? "Pilih Jadwal" : _scheduleController.text, style: const TextStyle(fontWeight: FontWeight.bold))
-                 ]),
-               ),
-             )),
-             const SizedBox(width: 10),
-             Expanded(child: _input(_deliveryFeeController, "Ongkir", icon: Icons.motorcycle, type: TextInputType.number)),
-          ]),
-          const SizedBox(height: 10),
-          _input(_gmapsLinkController, "Link Google Maps (Opsional)", icon: Icons.map),
-        ]
-      ]),
+      title: 'METODE PENGAMBILAN',
+      icon: isDelivery ? Icons.delivery_dining : Icons.storefront,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 45,
+            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+            child: Row(children: [
+              _toggleBtn('📦 Ambil Sendiri', !isDelivery, () => setState(() => _orderType = 'SELF_PICKUP')),
+              _toggleBtn('🚚 Diantar (Delivery)', isDelivery, () => setState(() => _orderType = 'DELIVERY')),
+            ]),
+          ),
+          const SizedBox(height: 14),
+
+          if (!isDelivery) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.bolt, color: Colors.green.shade700, size: 28),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ambil Langsung di Depot',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade900,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Status langsung SELESAI (COMPLETE) tanpa antrean kirim / estimasi waktu.',
+                          style: TextStyle(
+                            color: Colors.green.shade800,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Text(
+              'Pilihan Waktu Kirim',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => setState(() => _isScheduledDelivery = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: !_isScheduledDelivery ? Colors.blue.shade50 : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: !_isScheduledDelivery ? Colors.blue.shade700 : Colors.grey.shade300,
+                          width: !_isScheduledDelivery ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.electric_bolt, 
+                            size: 16, 
+                            color: !_isScheduledDelivery ? Colors.blue.shade700 : Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Antar Sekarang',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: !_isScheduledDelivery ? Colors.blue.shade800 : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      setState(() => _isScheduledDelivery = true);
+                      if (_deliverySchedule == null) _pickDateTime();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: _isScheduledDelivery ? Colors.blue.shade50 : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _isScheduledDelivery ? Colors.blue.shade700 : Colors.grey.shade300,
+                          width: _isScheduledDelivery ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.schedule, 
+                            size: 16, 
+                            color: _isScheduledDelivery ? Colors.blue.shade700 : Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Jadwalkan Nanti',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _isScheduledDelivery ? Colors.blue.shade800 : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            if (!_isScheduledDelivery) ...[
+              Row(
+                children: [
+                  Text(
+                    'Estimasi Tiba: ',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                  const Spacer(),
+                  for (int mins in [30, 45, 60]) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: ChoiceChip(
+                        label: Text(
+                          '$mins Mnt', 
+                          style: TextStyle(
+                            fontSize: 11, 
+                            fontWeight: FontWeight.bold, 
+                            color: _deliveryEstMinutes == mins ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        selected: _deliveryEstMinutes == mins,
+                        selectedColor: Colors.blue.shade700,
+                        backgroundColor: Colors.grey.shade100,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        onSelected: (val) {
+                          if (val) setState(() => _deliveryEstMinutes = mins);
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ] else ...[
+              InkWell(
+                onTap: _pickDateTime,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    border: Border.all(color: Colors.blue.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.event, size: 20, color: Colors.blue.shade800),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _deliverySchedule == null
+                              ? "Klik untuk Pilih Tanggal & Jam Pengantaran"
+                              : "Jadwal: ${DateFormat('EEE, dd MMM yyyy • HH:mm').format(_deliverySchedule!)}",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: _deliverySchedule == null ? Colors.blue.shade900 : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.edit, size: 16, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 14),
+            _input(_addressController, "Alamat Lengkap Pengantaran *", icon: Icons.location_on, maxLines: 2),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _input(
+                    _deliveryFeeController, 
+                    "Ongkos Kirim (Rp)", 
+                    icon: Icons.motorcycle, 
+                    type: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _input(
+              _gmapsLinkController, 
+              "Link Google Maps (Opsional)", 
+              icon: Icons.map_outlined,
+            ),
+          ],
+        ],
+      ),
     );
   }
 
