@@ -347,6 +347,7 @@ class _CourierScreenState extends State<CourierScreen> {
      String status = order['status'];
      bool isReady = status == 'READY';
      bool isDraft = status == 'DRAFT';
+     final String paymentType = (order['payment_type'] ?? '').toString().toUpperCase();
 
      String statusText = isReady ? "SIAP DIANTAR" 
                         : isDraft ? "MEMASAK" 
@@ -381,36 +382,33 @@ class _CourierScreenState extends State<CourierScreen> {
                children: [
                   Row(
                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     crossAxisAlignment: CrossAxisAlignment.start,
                      children: [
-                        Flexible( // Allow left side (Timer + Badge) to take needed space
-                           flex: 3,
-                           child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                        Expanded(
+                           child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                Flexible( // Allow badge text to shrink if really tight
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(20)),
-                                    child: Text(
-                                      statusText, 
-                                      style: TextStyle(color: badgeTextColor, fontWeight: FontWeight.bold, fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(20)),
+                                  child: Text(
+                                    statusText, 
+                                    style: TextStyle(color: badgeTextColor, fontWeight: FontWeight.bold, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
+                                if (paymentType.isNotEmpty && paymentType != '-')
+                                  _buildPaymentBadge(paymentType),
                               ],
                            ),
                         ),
                         const SizedBox(width: 8),
-                        Flexible( // Allow order number to shrink/ellipsis
-                           flex: 2,
-                           child: Text(
-                             "#${order['order_number']}", 
-                             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600),
-                             overflow: TextOverflow.ellipsis,
-                             maxLines: 1,
-                           )
+                        Text(
+                          "#${order['order_number']}", 
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade600, fontSize: 13),
                         )
                      ],
                   ),
@@ -480,5 +478,68 @@ class _CourierScreenState extends State<CourierScreen> {
          ),
        ),
      );
+  }
+
+  Widget _buildPaymentBadge(String paymentType) {
+    Color bgColor;
+    Color textColor;
+    Color borderColor;
+    IconData icon;
+    String label = paymentType;
+
+    switch (paymentType.toUpperCase()) {
+      case 'TUNAI':
+        bgColor = const Color(0xFFFEF3C7); // amber-100
+        textColor = const Color(0xFFB45309); // amber-700
+        borderColor = const Color(0xFFFDE68A); // amber-200
+        icon = Icons.payments_rounded;
+        label = 'TUNAI';
+        break;
+      case 'QRIS':
+        bgColor = const Color(0xFFE0F2FE); // sky-100
+        textColor = const Color(0xFF0369A1); // sky-700
+        borderColor = const Color(0xFFBAE6FD); // sky-200
+        icon = Icons.qr_code_2_rounded;
+        label = 'QRIS';
+        break;
+      case 'TRANSFER':
+        bgColor = const Color(0xFFF3E8FF); // purple-100
+        textColor = const Color(0xFF7E22CE); // purple-700
+        borderColor = const Color(0xFFE9D5FF); // purple-200
+        icon = Icons.account_balance_rounded;
+        label = 'TRANSFER';
+        break;
+      default:
+        bgColor = const Color(0xFFF1F5F9); // slate-100
+        textColor = const Color(0xFF475569); // slate-700
+        borderColor = const Color(0xFFE2E8F0);
+        icon = Icons.credit_card_rounded;
+        label = paymentType;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

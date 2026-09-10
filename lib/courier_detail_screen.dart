@@ -126,7 +126,14 @@ class _CourierDetailScreenState extends State<CourierDetailScreen> {
                      children: [
                         const Text("SIAPA & DIMANA?", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
                         const SizedBox(height: 8),
-                        Text(detail['customer'] ?? '-', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                         Row(
+                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                           children: [
+                             Expanded(child: Text(detail['customer'] ?? '-', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+                             if (detail['payment_type'] != null && detail['payment_type'].toString().isNotEmpty && detail['payment_type'] != '-')
+                               _buildPaymentBadge(detail['payment_type'].toString()),
+                           ],
+                         ),
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -209,6 +216,35 @@ class _CourierDetailScreenState extends State<CourierDetailScreen> {
                    ),
                 ),
 
+                // TOTAL & METODE PEMBAYARAN
+                const SizedBox(height: 16),
+                Container(
+                   padding: const EdgeInsets.all(16),
+                   decoration: BoxDecoration(
+                     color: Colors.white, 
+                     borderRadius: BorderRadius.circular(16),
+                     border: Border.all(color: const Color(0xFFE2E8F0)),
+                   ),
+                   child: Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+                       Column(
+                         crossAxisAlignment: CrossAxisAlignment.start,
+                         children: [
+                           const Text("TOTAL TAGIHAN", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
+                           const SizedBox(height: 4),
+                           Text(
+                             NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(detail['total'] ?? 0),
+                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
+                           ),
+                         ],
+                       ),
+                       if (detail['payment_type'] != null && detail['payment_type'].toString().isNotEmpty && detail['payment_type'] != '-')
+                         _buildPaymentBadge(detail['payment_type'].toString()),
+                     ],
+                   ),
+                ),
+
                 if (isOnDelivery) ...[
                    const SizedBox(height: 24),
                    const Text("BUKTI PENGANTARAN", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -265,6 +301,69 @@ class _CourierDetailScreenState extends State<CourierDetailScreen> {
           ],
         ),
       );
+  }
+
+  Widget _buildPaymentBadge(String paymentType) {
+    Color bgColor;
+    Color textColor;
+    Color borderColor;
+    IconData icon;
+    String label = paymentType;
+
+    switch (paymentType.toUpperCase()) {
+      case 'TUNAI':
+        bgColor = const Color(0xFFFEF3C7); // amber-100
+        textColor = const Color(0xFFB45309); // amber-700
+        borderColor = const Color(0xFFFDE68A); // amber-200
+        icon = Icons.payments_rounded;
+        label = 'TUNAI';
+        break;
+      case 'QRIS':
+        bgColor = const Color(0xFFE0F2FE); // sky-100
+        textColor = const Color(0xFF0369A1); // sky-700
+        borderColor = const Color(0xFFBAE6FD); // sky-200
+        icon = Icons.qr_code_2_rounded;
+        label = 'QRIS';
+        break;
+      case 'TRANSFER':
+        bgColor = const Color(0xFFF3E8FF); // purple-100
+        textColor = const Color(0xFF7E22CE); // purple-700
+        borderColor = const Color(0xFFE9D5FF); // purple-200
+        icon = Icons.account_balance_rounded;
+        label = 'TRANSFER';
+        break;
+      default:
+        bgColor = const Color(0xFFF1F5F9); // slate-100
+        textColor = const Color(0xFF475569); // slate-700
+        borderColor = const Color(0xFFE2E8F0);
+        icon = Icons.credit_card_rounded;
+        label = paymentType;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCompletionDuration(Map<String, dynamic> detail) {
