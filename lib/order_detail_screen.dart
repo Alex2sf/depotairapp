@@ -183,6 +183,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final reasons = [
       'Salah input barang / jumlah',
       'Pelanggan membatalkan pesanan',
+      'Pelanggan minta batal jadwal / batal antar',
       'Uang pembayaran kurang / tidak jadi bayar',
       'Pesanan dobel / duplikat',
       'Lainnya',
@@ -734,18 +735,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       bool showReady = ['DRAFT', 'PREPARED', 'PENDING', 'NEW', 'PAID'].contains(status);
       bool showComplete = ['READY', 'ON_DELIVERY'].contains(status);
 
-      // --- ATURAN KEAMANAN PEMBATALAN: Maksimal 60 Menit sejak dibuat ---
-      bool isUnder60Minutes = true;
-      final createdAt = _parseDate(detail['created_at']);
-      if (createdAt != null) {
-        final elapsedMinutes = DateTime.now().difference(createdAt).inMinutes;
-        if (elapsedMinutes > 60) {
-          isUnder60Minutes = false;
+      // --- ATURAN KEAMANAN PEMBATALAN ---
+      bool canCancelOrder = false;
+      if (status != 'CANCELLED') {
+        if (detail['can_cancel'] != null) {
+          canCancelOrder = detail['can_cancel'] == true;
+        } else {
+          // Client-side fallback
+          final now = DateTime.now();
+          final createdAt = _parseDate(detail['created_at']);
+          final within60Mins = createdAt != null && now.difference(createdAt).inMinutes <= 60;
+          final isDelivery = (detail['order_type'] ?? '').toString().toUpperCase() == 'DELIVERY';
+
+          if (isDelivery) {
+            // Kurir di jalan (ON_DELIVERY) atau sudah selesai tidak boleh dicancel langsung kasir
+            if (!['ON_DELIVERY', 'COMPLETE', 'CANCELLED'].contains(status)) {
+              final sched = _parseDate(detail['delivery_scheduled_at']);
+              final beforeSched = sched != null && sched.difference(now).inMinutes >= 60;
+              canCancelOrder = within60Mins || beforeSched;
+            }
+          } else {
+            canCancelOrder = within60Mins;
+          }
         }
       }
 
-      // Bisa cancel jika belum CANCELLED dan masih dalam batas aman 60 menit
-      bool showCancel = status != 'CANCELLED' && (detail['can_cancel'] ?? isUnder60Minutes);
+      bool showCancel = canCancelOrder;
 
       if (!showReady && !showComplete && !showCancel) return const SizedBox.shrink();
 
