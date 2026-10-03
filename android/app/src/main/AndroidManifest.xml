@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <application
-        android:label="depotair_app"
+        android:label="HydroExpert"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         
