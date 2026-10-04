@@ -340,11 +340,11 @@ class _CashDashboardScreenState extends State<CashDashboardScreen> {
             const SizedBox(height: 24),
             Row(
                 children: [
-                    Expanded(child: _buildMiniStat('Kasir', _todaySaldoData['kas_kasir'], Colors.white.withOpacity(0.15))),
+                    Expanded(child: _buildMiniStat('Kasir (Laci)', _todaySaldoData['current_drawer_balance'] ?? _todaySaldoData['kas_kasir'] ?? 0, Colors.white.withOpacity(0.15))),
                     const SizedBox(width: 10),
                     // Hanya Tampilkan Kas Besar jika User adalah Owner
                     if (_userProfile != null && (_userProfile!['role'] == 'owner' || _userProfile!['role'] == 'super_admin'))
-                       Expanded(child: _buildMiniStat('Kas Besar', _todaySaldoData['kas_besar'], Colors.white.withOpacity(0.15)))
+                       Expanded(child: _buildMiniStat('Kas Besar (Owner)', _todaySaldoData['current_owner_balance'] ?? _todaySaldoData['kas_besar'] ?? 0, Colors.white.withOpacity(0.15)))
                     else
                        const Spacer(), // Placeholder biar gak jelek layoutnya kalau kosong
                 ],

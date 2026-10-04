@@ -375,8 +375,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           children: [
             Expanded(
               child: _buildKasCard(
-                title: "Kas Besar (Bank/Utama)",
-                amount: data['kas_besar'] ?? 0,
+                title: "Kas Besar (Owner / Bank)",
+                amount: data['current_owner_balance'] ?? data['kas_besar'] ?? 0,
                 icon: Icons.account_balance_rounded,
                 badgeColor: const Color(0xFF4F46E5), // Indigo 600
                 bgColor: const Color(0xFFEEF2FF),
@@ -386,7 +386,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             Expanded(
               child: _buildKasCard(
                 title: "Kas Kasir (Uang Laci)",
-                amount: data['kas_kasir'] ?? 0,
+                amount: data['current_drawer_balance'] ?? data['kas_kasir'] ?? 0,
                 icon: Icons.point_of_sale_rounded,
                 badgeColor: const Color(0xFFEA580C), // Orange 600
                 bgColor: const Color(0xFFFFEDD5),

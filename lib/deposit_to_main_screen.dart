@@ -47,7 +47,7 @@ class _DepositToMainScreenState extends State<DepositToMainScreen> {
 
     if (mounted) {
       if (balanceResult != null && balanceResult['success'] == true) {
-        _currentCashierBalance = balanceResult['kas_kasir'] ?? 0;
+        _currentCashierBalance = balanceResult['current_drawer_balance'] ?? balanceResult['kas_kasir'] ?? 0;
       }
 
       final currentUserId = userProfile?['id'] as int?;

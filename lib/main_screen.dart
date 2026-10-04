@@ -288,6 +288,7 @@ class _MainScreenState extends State<MainScreen> {
     final String dateNow = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(DateTime.now());
 
     final num expectedCash = _currentShiftData?['expected_cash'] ?? 0;
+    final num currentDrawerBalance = _currentShiftData?['current_drawer_balance'] ?? expectedCash;
     final num totalCashSales = _currentShiftData?['total_cash_sales'] ?? 0;
     final num totalPurchases = _currentShiftData?['total_purchases'] ?? 0;
     final bool isOwnerOrAdmin = userRole == 'OWNER' || userRole == 'ADMIN';
@@ -309,7 +310,7 @@ class _MainScreenState extends State<MainScreen> {
                 offset: const Offset(0, -35),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: _buildHeroShiftCard(expectedCash, totalCashSales, totalPurchases),
+                  child: _buildHeroShiftCard(expectedCash, currentDrawerBalance, totalCashSales, totalPurchases),
                 ),
               ),
 
@@ -668,7 +669,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // --- HERO SHIFT CARD ---
-  Widget _buildHeroShiftCard(num expectedCash, num totalCashSales, num totalPurchases) {
+  Widget _buildHeroShiftCard(num expectedCash, num currentDrawerBalance, num totalCashSales, num totalPurchases) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -736,15 +737,38 @@ class _MainScreenState extends State<MainScreen> {
 
           const SizedBox(height: 8),
 
-          // Row 2: Large Nominal
-          Text(
-            _hideBalance ? "••••••••••••" : _formatCurrency(expectedCash),
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF0F172A),
-              letterSpacing: -0.5,
-            ),
+          // Row 2: Large Nominal (Current Drawer Balance)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                _hideBalance ? "••••••••••••" : _formatCurrency(currentDrawerBalance),
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (!_hideBalance && currentDrawerBalance != expectedCash)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(
+                    "Target Shift: ${_formatCurrency(expectedCash)}",
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+            ],
           ),
 
           const SizedBox(height: 16),
