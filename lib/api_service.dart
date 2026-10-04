@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'offline_service.dart';
@@ -858,10 +859,15 @@ class ApiService {
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['data'] ?? [];
+        final rawList = data['data'];
+        if (rawList is List) return rawList;
+        if (rawList is Map) return rawList.values.toList();
+      } else {
+        debugPrint("getShiftHistory error status: ${response.statusCode} - ${response.body}");
       }
       return [];
     } catch (e) {
+      debugPrint("getShiftHistory exception: $e");
       return [];
     }
   }
@@ -877,10 +883,15 @@ class ApiService {
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['data'] ?? [];
+        final rawList = data['data'];
+        if (rawList is List) return rawList;
+        if (rawList is Map) return rawList.values.toList();
+      } else {
+        debugPrint("getDepositHistory error status: ${response.statusCode} - ${response.body}");
       }
       return [];
     } catch (e) {
+      debugPrint("getDepositHistory exception: $e");
       return [];
     }
   }

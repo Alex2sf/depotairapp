@@ -99,6 +99,44 @@ class _OwnerTransactionsScreenState extends State<OwnerTransactionsScreen> {
   String _formatCurrency(num amount) => NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
   String _formatDate(DateTime date) => DateFormat('dd MMM yyyy').format(date);
 
+  void _showImagePreview(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 200,
+                    color: Colors.white,
+                    child: const Center(child: Text("Gagal memuat foto bukti.")),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(ctx),
+              icon: const CircleAvatar(
+                backgroundColor: Colors.black54,
+                child: Icon(Icons.close, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,6 +210,7 @@ class _OwnerTransactionsScreenState extends State<OwnerTransactionsScreen> {
      final bool isExpense = item['tipe'] == 'Pengeluaran';
      final Color color = isExpense ? Colors.red.shade700 : Colors.green.shade700;
      final IconData icon = isExpense ? Icons.arrow_upward : Icons.arrow_downward;
+     final String? photoUrl = item['proof_image_url'];
 
      return Container(
        margin: const EdgeInsets.only(bottom: 12),
@@ -195,7 +234,32 @@ class _OwnerTransactionsScreenState extends State<OwnerTransactionsScreen> {
              crossAxisAlignment: CrossAxisAlignment.start,
              children: [
                Text('${item['waktu']}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-               Text('Oleh: ${item['oleh']}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+               Text('Oleh: ${item['oleh']}${item['atas_nama'] != null && item['atas_nama'] != '-' ? ' (a.n. ${item['atas_nama']})' : ''}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+               if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                 const SizedBox(height: 6),
+                 GestureDetector(
+                   onTap: () => _showImagePreview(photoUrl),
+                   child: Container(
+                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                     decoration: BoxDecoration(
+                       color: Colors.indigo.shade50,
+                       borderRadius: BorderRadius.circular(8),
+                       border: Border.all(color: Colors.indigo.shade200),
+                     ),
+                     child: const Row(
+                       mainAxisSize: MainAxisSize.min,
+                       children: [
+                         Icon(Icons.photo_camera_outlined, size: 14, color: Colors.indigo),
+                         SizedBox(width: 4),
+                         Text(
+                           "Lihat Bukti Foto",
+                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo),
+                         ),
+                       ],
+                     ),
+                   ),
+                 ),
+               ],
              ],
            ),
          ),

@@ -358,7 +358,29 @@ class _OwnerShiftMonitoringScreenState extends State<OwnerShiftMonitoringScreen>
                             ? Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  Image.network(photoUrl, fit: BoxFit.cover),
+                                  Image.network(
+                                    photoUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      color: Colors.grey.shade200,
+                                      child: const Center(
+                                        child: Icon(Icons.broken_image_outlined, color: Colors.grey, size: 22),
+                                      ),
+                                    ),
+                                    loadingBuilder: (context, child, progress) {
+                                      if (progress == null) return child;
+                                      return Container(
+                                        color: Colors.grey.shade100,
+                                        child: const Center(
+                                          child: SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                   Container(
                                     color: Colors.black26,
                                     child: const Center(child: Icon(Icons.zoom_in, color: Colors.white, size: 24)),
