@@ -521,6 +521,10 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
   List<Map<String, dynamic>> _recommendations = [];
   List<Map<String, dynamic>> _allProducts = [];
   String _searchQuery = '';
+  String _selectedCategory = 'SEMUA';
+  List<Map<String, dynamic>> _categoryOptions = [
+    {'value': 'SEMUA', 'label': 'Semua'},
+  ];
 
   // Cart state: Map<productId, quantity> & Map<productId, productData>
   final Map<int, int> _cartQuantities = {};
@@ -557,9 +561,31 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
       if (res != null && res['success'] == true) {
         final recs = (res['recommendations'] as List<dynamic>?) ?? [];
         final prods = (res['all_products'] as List<dynamic>?) ?? [];
+        final types = (res['product_types'] as List<dynamic>?) ?? [];
 
         _recommendations = recs.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         _allProducts = prods.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+
+        if (types.isNotEmpty) {
+          _categoryOptions = types.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          if (!_categoryOptions.any((c) => c['value'] == 'SEMUA')) {
+            _categoryOptions.insert(0, {'value': 'SEMUA', 'label': 'Semua'});
+          }
+        } else {
+          // Dynamic fallback dari data produk yang ada
+          final distinctTypes = _allProducts
+              .map((p) => p['product_type']?.toString().toUpperCase())
+              .where((t) => t != null && t.isNotEmpty)
+              .toSet();
+          _categoryOptions = [{'value': 'SEMUA', 'label': 'Semua'}];
+          for (var dt in distinctTypes) {
+            String label = dt!;
+            if (dt == 'REFILL') label = 'Isi Ulang';
+            if (dt == 'NEW_UNIT') label = 'Unit Baru';
+            if (dt == 'CONSUMABLE') label = 'Barang Konsumsi';
+            _categoryOptions.add({'value': dt, 'label': label});
+          }
+        }
 
         // Pre-fill dari Opname jika ada
         if (widget.initialProduct != null) {
@@ -580,16 +606,60 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
     if (pid == 0) return;
 
     final int defaultQty = quantity ?? _safeInt(prod['suggested_quantity'] ?? prod['suggested_qty'] ?? 10);
-    final int currentQty = _cartQuantities[pid] ?? 0;
+    final int finalQty = defaultQty > 0 ? defaultQty : 1;
 
     setState(() {
       _cartProducts[pid] = prod;
-      if (currentQty == 0) {
-        _cartQuantities[pid] = defaultQty > 0 ? defaultQty : 10;
-      } else {
-        _cartQuantities[pid] = currentQty + 10;
-      }
+      // Selalu gunakan nilai terbaru yang dipilih/diinput (replace/update, bukan diakumulasikan)
+      _cartQuantities[pid] = finalQty;
     });
+  }
+
+  Future<void> _showEditQtyDialog(int pid, String productName, int currentQty, [void Function()? onUpdated]) async {
+    final controller = TextEditingController(text: currentQty.toString());
+    final newQty = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Ubah Jumlah Pesan\n$productName',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Jumlah',
+            hintText: 'Misal: 2',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            isDense: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = int.tryParse(controller.text.trim()) ?? 0;
+              Navigator.pop(ctx, val);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (newQty != null) {
+      _updateCartQty(pid, newQty);
+      if (onUpdated != null) onUpdated();
+    }
   }
 
   void _updateCartQty(int pid, int qty) {
@@ -610,11 +680,12 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
     });
   }
 
-  void _addAllRecommendations() {
-    if (_recommendations.isEmpty) return;
+  void _addAllRecommendations([List<Map<String, dynamic>>? targetList]) {
+    final list = targetList ?? _recommendations;
+    if (list.isEmpty) return;
     int addedCount = 0;
     setState(() {
-      for (var r in _recommendations) {
+      for (var r in list) {
         final pid = _safeInt(r['id'] ?? r['product_id']);
         if (pid == 0) continue;
         _cartProducts[pid] = r;
@@ -814,11 +885,15 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                                             setSheetState(() {});
                                           },
                                         ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                                          child: Text(
-                                            '$qty',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        InkWell(
+                                          onTap: () => _showEditQtyDialog(pid, name, qty, () => setSheetState(() {})),
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            child: Text(
+                                              '$qty',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            ),
                                           ),
                                         ),
                                         IconButton(
@@ -920,12 +995,32 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
 
   @override
   Widget build(BuildContext context) {
+    final filteredRecommendations = _recommendations.where((rec) {
+      if (_searchQuery.isNotEmpty) {
+        final name = (rec['name'] ?? '').toString().toLowerCase();
+        final sku = (rec['sku'] ?? '').toString().toLowerCase();
+        final q = _searchQuery.toLowerCase();
+        if (!name.contains(q) && !sku.contains(q)) return false;
+      }
+      if (_selectedCategory != 'SEMUA') {
+        final pType = (rec['product_type'] ?? '').toString().toUpperCase();
+        if (pType != _selectedCategory.toUpperCase()) return false;
+      }
+      return true;
+    }).toList();
+
     final filteredCatalog = _allProducts.where((p) {
-      if (_searchQuery.isEmpty) return true;
-      final name = (p['name'] ?? '').toString().toLowerCase();
-      final sku = (p['sku'] ?? '').toString().toLowerCase();
-      final q = _searchQuery.toLowerCase();
-      return name.contains(q) || sku.contains(q);
+      if (_searchQuery.isNotEmpty) {
+        final name = (p['name'] ?? '').toString().toLowerCase();
+        final sku = (p['sku'] ?? '').toString().toLowerCase();
+        final q = _searchQuery.toLowerCase();
+        if (!name.contains(q) && !sku.contains(q)) return false;
+      }
+      if (_selectedCategory != 'SEMUA') {
+        final pType = (p['product_type'] ?? '').toString().toUpperCase();
+        if (pType != _selectedCategory.toUpperCase()) return false;
+      }
+      return true;
     }).toList();
 
     final totalCartPrice = _calculateTotal();
@@ -981,17 +1076,122 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _fetchCatalog,
-              child: Stack(
-                children: [
-                  ListView(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, totalCartCount > 0 ? 100 : 30),
+          : Column(
+              children: [
+                // ========================================================
+                // STICKY TOP: 🔍 SEARCH BAR & 🏷️ FILTER KATEGORI DI ATAS
+                // ========================================================
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ========================================================
-                      // SECTION 1: ⚡ REKOMENDASI RESTOCK HARI INI
-                      // ========================================================
-                      Container(
+                      // Search Bar
+                      TextField(
+                        controller: _searchController,
+                        onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                        decoration: InputDecoration(
+                          hintText: 'Cari nama barang, galon, tisu, filter...',
+                          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF0284C7), size: 20),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          isDense: true,
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Horizontal Scrollable Category Chips
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _categoryOptions.map((opt) {
+                            final isSelected = _selectedCategory == opt['value'];
+                            final label = opt['label'] ?? opt['value'] ?? '';
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(label),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  if (selected) {
+                                    setState(() => _selectedCategory = opt['value']);
+                                  }
+                                },
+                                selectedColor: const Color(0xFFE0F2FE),
+                                backgroundColor: const Color(0xFFF8FAFC),
+                                labelStyle: TextStyle(
+                                  color: isSelected ? const Color(0xFF0284C7) : const Color(0xFF475569),
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(
+                                    color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                                    width: isSelected ? 1.5 : 1,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ========================================================
+                // LIST KONTEN UTAMA DENGAN REKOMENDASI & KATALOG
+                // ========================================================
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _fetchCatalog,
+                    child: Stack(
+                      children: [
+                        ListView(
+                          padding: EdgeInsets.fromLTRB(16, 16, 16, totalCartCount > 0 ? 100 : 30),
+                          children: [
+                            // ========================================================
+                            // SECTION 1: ⚡ REKOMENDASI RESTOCK HARI INI
+                            // ========================================================
+                            Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
@@ -1018,9 +1218,9 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                                     ),
                                   ],
                                 ),
-                                if (_recommendations.isNotEmpty)
+                                if (filteredRecommendations.isNotEmpty)
                                   InkWell(
-                                    onTap: _addAllRecommendations,
+                                    onTap: () => _addAllRecommendations(filteredRecommendations),
                                     borderRadius: BorderRadius.circular(8),
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1043,7 +1243,7 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                             ),
                             const SizedBox(height: 12),
 
-                            if (_recommendations.isEmpty)
+                            if (filteredRecommendations.isEmpty)
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(14),
@@ -1051,21 +1251,31 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                                   color: Colors.white.withValues(alpha: 0.8),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 20),
-                                    SizedBox(width: 8),
+                                    Icon(
+                                      _recommendations.isEmpty ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                      color: _recommendations.isEmpty ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Semua stok barang saat ini masih di atas ambang batas aman 👍',
-                                        style: TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                                        _recommendations.isEmpty
+                                            ? 'Semua stok barang saat ini masih di atas ambang batas aman 👍'
+                                            : 'Tidak ada rekomendasi restock untuk kategori / pencarian ini.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: _recommendations.isEmpty ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               )
                             else
-                              ..._recommendations.map((rec) {
+                              ...filteredRecommendations.map((rec) {
                                 final pid = _safeInt(rec['id'] ?? rec['product_id']);
                                 final name = rec['name'] ?? '-';
                                 final currentStock = _safeInt(rec['current_stock']);
@@ -1155,9 +1365,16 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                                                     padding: EdgeInsets.zero,
                                                     onPressed: () => _updateCartQty(pid, inCartQty - 1),
                                                   ),
-                                                  Text(
-                                                    '$inCartQty',
-                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0284C7)),
+                                                  InkWell(
+                                                    onTap: () => _showEditQtyDialog(pid, name, inCartQty),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      child: Text(
+                                                        '$inCartQty',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0284C7)),
+                                                      ),
+                                                    ),
                                                   ),
                                                   IconButton(
                                                     icon: const Icon(Icons.add, size: 16, color: Color(0xFF0284C7)),
@@ -1195,36 +1412,27 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                       const SizedBox(height: 20),
 
                       // ========================================================
-                      // SECTION 2: 🔍 CARI & TAMBAH BARANG LAIN
+                      // SECTION 2: 📦 KATALOG SELURUH BARANG
                       // ========================================================
-                      const Text(
-                        'Cari & Tambah Barang Lain 🔍',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Search bar
-                      TextField(
-                        controller: _searchController,
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                        decoration: InputDecoration(
-                          hintText: 'Cari galon, tutup, tisu, filter...',
-                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                )
-                              : null,
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Katalog Seluruh Barang 📦',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${filteredCatalog.length} produk',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 12),
 
@@ -1234,7 +1442,7 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                           child: const Center(
-                            child: Text('Barang tidak ditemukan', style: TextStyle(color: Colors.grey)),
+                            child: Text('Barang tidak ditemukan untuk filter ini', style: TextStyle(color: Colors.grey)),
                           ),
                         )
                       else
@@ -1302,9 +1510,16 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                                           padding: EdgeInsets.zero,
                                           onPressed: () => _updateCartQty(pid, inCartQty - 1),
                                         ),
-                                        Text(
-                                          '$inCartQty',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0284C7)),
+                                        InkWell(
+                                          onTap: () => _showEditQtyDialog(pid, name, inCartQty),
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            child: Text(
+                                              '$inCartQty',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF0284C7)),
+                                            ),
+                                          ),
                                         ),
                                         IconButton(
                                           icon: const Icon(Icons.add, size: 14, color: Color(0xFF0284C7)),
@@ -1432,6 +1647,9 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                 ],
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 
