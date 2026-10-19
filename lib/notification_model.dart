@@ -68,12 +68,18 @@ class NotificationModel extends ChangeNotifier {
                  newCount++;
                  
                  // Customize Message
-                 String title = 'Pesanan Baru #${order['order_number']}';
-                 String body = 'Segera proses pesanan ini.';
+                 final custName = order['customer']?['name']?.toString() ?? '';
+                 final orderType = (order['order_type'] ?? '') == 'DELIVERY' ? 'Delivery' : 'Ambil Sendiri';
+                 String title = '🔔 Pesanan Baru #${order['order_number']}';
+                 String body = custName.isNotEmpty 
+                     ? '$custName memesan ($orderType). Segera proses!' 
+                     : 'Pesanan baru ($orderType). Segera proses!';
                  
                  if (role == 'kurir') {
                    title = '🎉 Siap Diantar! #${order['order_number']}';
-                   body = 'Pesanan sudah siap. Ambil dan antar ke pelanggan sekarang!';
+                   body = custName.isNotEmpty
+                       ? 'Pesanan $custName siap diantar. Buka aplikasi untuk ambil!'
+                       : 'Pesanan sudah siap. Ambil dan antar ke pelanggan sekarang!';
                  }
 
                  NotificationService().showNotification(
