@@ -289,8 +289,8 @@ class _MainScreenState extends State<MainScreen> {
 
     final num expectedCash = _currentShiftData?['expected_cash'] ?? 0;
     final num currentDrawerBalance = _currentShiftData?['current_drawer_balance'] ?? expectedCash;
-    final num totalCashSales = _currentShiftData?['total_cash_sales'] ?? 0;
-    final num totalPurchases = _currentShiftData?['total_purchases'] ?? 0;
+    final num totalCashSales = _currentShiftData?['total_cash_sales'] ?? _currentShiftData?['cash_sales'] ?? 0;
+    final num totalPurchases = _currentShiftData?['total_purchases'] ?? _currentShiftData?['cash_expenses'] ?? 0;
     final bool isOwnerOrAdmin = userRole == 'OWNER' || userRole == 'ADMIN';
 
     return Container(
@@ -738,37 +738,14 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           // Row 2: Large Nominal (Current Drawer Balance)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                _hideBalance ? "••••••••••••" : _formatCurrency(currentDrawerBalance),
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (!_hideBalance && currentDrawerBalance != expectedCash)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Text(
-                    "Target Shift: ${_formatCurrency(expectedCash)}",
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ),
-            ],
+          Text(
+            _hideBalance ? "••••••••••••" : _formatCurrency(currentDrawerBalance),
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+              letterSpacing: -0.5,
+            ),
           ),
 
           const SizedBox(height: 16),

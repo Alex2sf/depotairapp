@@ -603,18 +603,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _rememberEmail = !_rememberEmail;
-                    });
-                  },
-                  child: Text(
-                    'Ingat email di perangkat ini',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.blueGrey.shade600,
-                      fontWeight: FontWeight.w500,
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _rememberEmail = !_rememberEmail;
+                      });
+                    },
+                    child: Text(
+                      'Ingat email di perangkat ini',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blueGrey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),

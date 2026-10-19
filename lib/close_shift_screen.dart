@@ -195,6 +195,16 @@ class _CloseShiftScreenState extends State<CloseShiftScreen> {
               "Terima kasih atas kerja kerasnya! Data serah terima laci telah tersimpan rapi.\n\nSisa uang fisik ${_formatCurrency(actualCash)} aman di laci untuk kasir selanjutnya.",
             ),
             actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const RoleBasedRouter()),
+                    (route) => false,
+                  );
+                },
+                child: const Text("TETAP MASUK", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
@@ -205,7 +215,7 @@ class _CloseShiftScreenState extends State<CloseShiftScreen> {
                   );
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                child: const Text("SELESAI & LOGOUT"),
+                child: const Text("GANTI KASIR (LOGOUT)"),
               ),
             ],
           ),
@@ -317,7 +327,7 @@ class _CloseShiftScreenState extends State<CloseShiftScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
                   ],
                   border: Border.all(color: Colors.grey.shade200),
                 ),
@@ -393,45 +403,124 @@ class _CloseShiftScreenState extends State<CloseShiftScreen> {
 
               if (_actualCashController.text.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: difference == 0
-                        ? Colors.green.shade50
-                        : (difference > 0 ? Colors.orange.shade50 : Colors.red.shade50),
-                    borderRadius: BorderRadius.circular(12),
+                        ? const Color(0xFFF0FDF4)
+                        : (difference > 0 ? const Color(0xFFFFFBEB) : const Color(0xFFFEF2F2)),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: difference == 0
-                          ? Colors.green.shade300
-                          : (difference > 0 ? Colors.orange.shade300 : Colors.red.shade300),
+                          ? const Color(0xFF86EFAC)
+                          : (difference > 0 ? const Color(0xFFFDE68A) : const Color(0xFFFECACA)),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        difference == 0
-                            ? Icons.check_circle
-                            : (difference > 0 ? Icons.info : Icons.warning_amber),
-                        color: difference == 0
-                            ? Colors.green.shade700
-                            : (difference > 0 ? Colors.orange.shade800 : Colors.red.shade700),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          difference == 0
-                              ? "Uang laci PAS! Tidak ada selisih."
-                              : (difference > 0
-                                  ? "Uang laci LEBIH: +${_formatCurrency(difference)} (Mungkin ada penjualan belum terinput)"
-                                  : "Uang laci KURANG: ${_formatCurrency(difference)}"),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                      Row(
+                        children: [
+                          Icon(
+                            difference == 0
+                                ? Icons.check_circle_rounded
+                                : (difference > 0 ? Icons.add_circle_outline_rounded : Icons.remove_circle_outline_rounded),
                             color: difference == 0
-                                ? Colors.green.shade800
-                                : (difference > 0 ? Colors.orange.shade900 : Colors.red.shade800),
+                                ? const Color(0xFF16A34A)
+                                : (difference > 0 ? const Color(0xFFD97706) : const Color(0xFFDC2626)),
+                            size: 22,
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              difference == 0
+                                  ? "Uang Fisik PAS! Tidak ada selisih."
+                                  : (difference > 0
+                                      ? "Uang Fisik LEBIH: +${_formatCurrency(difference)}"
+                                      : "Uang Fisik KURANG (MINUS): ${_formatCurrency(difference)}"),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: difference == 0
+                                    ? const Color(0xFF15803D)
+                                    : (difference > 0 ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 10),
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      if (difference == 0)
+                        const Row(
+                          children: [
+                            Icon(Icons.thumb_up_alt_outlined, size: 14, color: Color(0xFF15803D)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                "Uang di laci 100% cocok dengan pembukuan sistem. Siap serah terima shift!",
+                                style: TextStyle(fontSize: 12, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        )
+                      else if (difference < 0) ...[
+                        const Row(
+                          children: [
+                            Icon(Icons.lightbulb_outline_rounded, size: 15, color: Color(0xFFDC2626)),
+                            SizedBox(width: 6),
+                            Text(
+                              "Kemungkinan Penyebab Uang Fisik Kurang:",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF991B1B),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "1. Lupa catat belanja kasir (beli bensin, es batu, galon, lakban, dll).\n"
+                          "2. Salah memberi kembalian lebih ke pembeli.\n"
+                          "3. Ada nota kasir terinput TUNAI padahal pembeli belum bayar / utang.\n"
+                          "4. Ada uang kertas/koin terselip di bawah laci kasir.",
+                          style: TextStyle(fontSize: 11.5, color: Color(0xFF7F1D1D), height: 1.45),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "👉 Tulis alasannya di kolom 'Catatan Kasir' di bawah jika uang memang tidak ketemu.",
+                          style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFFB91C1C)),
+                        ),
+                      ] else ...[
+                        const Row(
+                          children: [
+                            Icon(Icons.lightbulb_outline_rounded, size: 15, color: Color(0xFFD97706)),
+                            SizedBox(width: 6),
+                            Text(
+                              "Kemungkinan Penyebab Uang Fisik Lebih:",
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "1. Ada penjualan tunai yang belum sempat diinput nota di aplikasi.\n"
+                          "2. Pembeli tidak mengambil uang kembalian (tip kasir masuk laci).\n"
+                          "3. Salah memberi kembalian kurang ke pembeli.\n"
+                          "4. Uang pribadi kasir tidak sengaja tercampur ke dalam laci.",
+                          style: TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.45),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          "👉 Tulis keterangannya di kolom 'Catatan Kasir' di bawah.",
+                          style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFFB45309)),
+                        ),
+                      ],
                     ],
                   ),
                 ),

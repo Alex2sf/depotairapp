@@ -207,9 +207,15 @@ class _OwnerTransactionsScreenState extends State<OwnerTransactionsScreen> {
   }
 
   Widget _buildTransactionCard(Map<String, dynamic> item) {
-     final bool isExpense = item['tipe'] == 'Pengeluaran';
-     final Color color = isExpense ? Colors.red.shade700 : Colors.green.shade700;
-     final IconData icon = isExpense ? Icons.arrow_upward : Icons.arrow_downward;
+     final String tipe = (item['tipe'] ?? '').toString();
+     final bool isExpense = tipe == 'Pengeluaran';
+     final bool isSetor = tipe == 'Setor Kas';
+     final Color color = isSetor
+         ? Colors.indigo.shade700
+         : (isExpense ? Colors.red.shade700 : Colors.green.shade700);
+     final IconData icon = isSetor
+         ? Icons.sync_alt_rounded
+         : (isExpense ? Icons.arrow_upward : Icons.arrow_downward);
      final String? photoUrl = item['proof_image_url'];
 
      return Container(
