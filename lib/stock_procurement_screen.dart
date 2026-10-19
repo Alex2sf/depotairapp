@@ -499,7 +499,12 @@ class _StockProcurementScreenState extends State<StockProcurementScreen> with Si
 // =========================================================================
 class StockProcurementCreateScreen extends StatefulWidget {
   final Map<String, dynamic>? initialProduct;
-  const StockProcurementCreateScreen({super.key, this.initialProduct});
+  final List<Map<String, dynamic>>? initialProducts;
+  const StockProcurementCreateScreen({
+    super.key,
+    this.initialProduct,
+    this.initialProducts,
+  });
 
   @override
   State<StockProcurementCreateScreen> createState() => _StockProcurementCreateScreenState();
@@ -535,13 +540,22 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
         if (widget.initialProduct != null) {
           _addItem(widget.initialProduct!);
         }
+        if (widget.initialProducts != null) {
+          for (var p in widget.initialProducts!) {
+            _addItem(p);
+          }
+        }
       }
       setState(() => _isLoading = false);
     }
   }
 
   void _addItem(Map<String, dynamic> prod) {
-    final existingIndex = _selectedItems.indexWhere((it) => it['product_id'] == prod['id']);
+    final dynamic idVal = prod['id'] ?? prod['product_id'];
+    final int prodId = idVal is int ? idVal : (int.tryParse(idVal.toString()) ?? 0);
+    if (prodId == 0) return;
+
+    final existingIndex = _selectedItems.indexWhere((it) => it['product_id'] == prodId);
     if (existingIndex >= 0) {
       setState(() {
         _selectedItems[existingIndex]['quantity'] += 10;
@@ -550,16 +564,16 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
       return;
     }
 
-    final int cogs = (prod['cogs'] ?? 0) as int;
-    final int qty = 10;
+    final int cogs = (prod['cogs'] ?? 0) is num ? (prod['cogs'] as num).toInt() : (int.tryParse(prod['cogs']?.toString() ?? '0') ?? 0);
+    final int qty = (prod['suggested_qty'] ?? 10) is num ? (prod['suggested_qty'] as num).toInt() : (int.tryParse(prod['suggested_qty']?.toString() ?? '10') ?? 10);
     final controller = TextEditingController(text: qty.toString());
 
     setState(() {
       _selectedItems.add({
-        'product_id': prod['id'],
-        'name': prod['name'],
+        'product_id': prodId,
+        'name': prod['name'] ?? prod['nama'] ?? '-',
         'cogs': cogs,
-        'stock': prod['stock'] ?? 0,
+        'stock': prod['stock'] ?? prod['stok_riil'] ?? prod['stok_sistem'] ?? 0,
         'quantity': qty,
         'controller': controller,
       });

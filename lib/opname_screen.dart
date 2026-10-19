@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api_service.dart';
-import 'package:intl/intl.dart'; // Import ini untuk format currency (opsional, tapi bagus)
+import 'package:intl/intl.dart';
+import 'stock_procurement_screen.dart';
 
 class OpnameScreen extends StatefulWidget {
   const OpnameScreen({super.key});
@@ -21,6 +22,9 @@ class _OpnameScreenState extends State<OpnameScreen> {
   final Map<int, TextEditingController> _qtyControllers = {};
   final Map<int, String> _diffStatus = {}; 
   final Map<int, int> _diffValue = {}; 
+  
+  // Track pengajuan belanja selama sesi opname ini: productId -> {qty, status}
+  final Map<int, Map<String, dynamic>> _procurementRequests = {};
   
   final TextEditingController _notesController = TextEditingController(text: 'Opname Harian');
   final TextEditingController _searchController = TextEditingController(); 
@@ -255,6 +259,359 @@ class _OpnameScreenState extends State<OpnameScreen> {
     );
   }
 
+  String _formatCurrency(num amount) {
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
+  }
+
+  int get _lowStockCount {
+    return _masterList.where((it) {
+      final pid = safeInt(it['product_id']);
+      final rq = int.tryParse(_qtyControllers[pid]?.text.trim() ?? '') ?? safeInt(it['stok_riil']);
+      return rq <= 5 && !_procurementRequests.containsKey(pid);
+    }).length;
+  }
+
+  void _openQuickProcurementSheet(BuildContext context, Map<String, dynamic> item, int currentRealQty) {
+    final productId = safeInt(item['product_id']);
+    final productName = item['nama'] ?? '-';
+    final unit = item['unit'] ?? 'pcs';
+    final int cogs = safeInt(item['cogs']);
+
+    int buyQty = 50;
+    final buyQtyController = TextEditingController(text: buyQty.toString());
+    final notesController = TextEditingController(text: 'Stok sisa $currentRealQty $unit saat opname malam');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final int inputQty = int.tryParse(buyQtyController.text.trim()) ?? 0;
+          final int totalCost = inputQty * cogs;
+
+          return Container(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7), size: 24),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              productName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Sisa Fisik: $currentRealQty $unit • Modal: ${_formatCurrency(cogs)}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Jumlah Pengajuan Beli:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                      ),
+                      Text('Satuan: $unit', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          int cur = int.tryParse(buyQtyController.text.trim()) ?? 0;
+                          if (cur > 10) cur -= 10;
+                          else if (cur > 1) cur -= 1;
+                          setModalState(() {
+                            buyQtyController.text = cur.toString();
+                          });
+                        },
+                        icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF0284C7), size: 28),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: buyQtyController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Color(0xFF0284C7)),
+                          onChanged: (_) => setModalState(() {}),
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                            suffixText: unit,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          int cur = int.tryParse(buyQtyController.text.trim()) ?? 0;
+                          cur += 10;
+                          setModalState(() {
+                            buyQtyController.text = cur.toString();
+                          });
+                        },
+                        icon: const Icon(Icons.add_circle_outline, color: Color(0xFF0284C7), size: 28),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [10, 25, 50, 100].map((preset) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () {
+                              setModalState(() {
+                                buyQtyController.text = preset.toString();
+                              });
+                            },
+                            child: Text('+$preset', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Estimasi Beban Kas Besar:',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF166534)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$inputQty $unit × ${_formatCurrency(cogs)}',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF15803D)),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          _formatCurrency(totalCost),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    decoration: InputDecoration(
+                      labelText: 'Catatan untuk Owner (Opsional)',
+                      labelStyle: const TextStyle(fontSize: 12),
+                      hintText: 'Misal: Stok menipis, butuh restock besok pagi',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.shield_outlined, size: 16, color: Color(0xFF1D4ED8)),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Kasir dilarang beli stok pakai kas laci fisik. Pembelian stok dipotong langsung dari Kas Besar setelah disetujui Owner.',
+                            style: TextStyle(fontSize: 10.5, color: Color(0xFF1E40AF)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                    onPressed: () {
+                      final submitQty = int.tryParse(buyQtyController.text.trim()) ?? 0;
+                      if (submitQty <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Jumlah beli harus lebih dari 0'), backgroundColor: Colors.orange),
+                        );
+                        return;
+                      }
+                      Navigator.pop(ctx);
+                      _submitSingleProcurement(
+                        productId: productId,
+                        productName: productName,
+                        qty: submitQty,
+                        unit: unit,
+                        notes: notesController.text.trim(),
+                      );
+                    },
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text('KIRIM PENGAJUAN KE OWNER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _submitSingleProcurement({
+    required int productId,
+    required String productName,
+    required int qty,
+    required String unit,
+    required String notes,
+  }) async {
+    setState(() => _isLoading = true);
+    final res = await _apiService.createProcurement(
+      items: [
+        {
+          'product_id': productId,
+          'quantity': qty,
+        }
+      ],
+      notes: notes.isNotEmpty ? notes : 'Pengajuan dari Stok Opname',
+    );
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (res['success'] == true) {
+        setState(() {
+          _procurementRequests[productId] = {
+            'qty': qty,
+            'status': 'PENDING',
+          };
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Pengajuan $qty $unit $productName berhasil dikirim ke Owner!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Gagal mengajukan: ${res['message'] ?? 'Terjadi kesalahan'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _openBatchProcurement() async {
+    final lowStockItems = _masterList.where((it) {
+      final pid = safeInt(it['product_id']);
+      final rq = int.tryParse(_qtyControllers[pid]?.text.trim() ?? '') ?? safeInt(it['stok_riil']);
+      return rq <= 5 && !_procurementRequests.containsKey(pid);
+    }).map((it) {
+      final pid = safeInt(it['product_id']);
+      final rq = int.tryParse(_qtyControllers[pid]?.text.trim() ?? '') ?? safeInt(it['stok_riil']);
+      return {
+        'product_id': pid,
+        'name': it['nama'],
+        'cogs': safeInt(it['cogs']),
+        'stock': rq,
+        'suggested_qty': 50,
+      };
+    }).toList();
+
+    if (lowStockItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Semua barang kritis sudah diajukan atau stok masih aman.'), backgroundColor: Colors.blue),
+      );
+      return;
+    }
+
+    final refresh = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StockProcurementCreateScreen(
+          initialProducts: lowStockItems,
+        ),
+      ),
+    );
+
+    if (refresh == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Pengajuan belanja berhasil dikirim ke Owner!'), backgroundColor: Colors.green),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -271,6 +628,16 @@ class _OpnameScreenState extends State<OpnameScreen> {
           ],
         ),
         actions: [
+            IconButton(
+                onPressed: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const StockProcurementScreen()),
+                    );
+                },
+                icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7)),
+                tooltip: 'Pengadaan Stok',
+            ),
             TextButton.icon(
                 onPressed: _isLoading ? null : _submitOpname,
                 icon: const Icon(Icons.check_circle_outline),
@@ -367,6 +734,52 @@ class _OpnameScreenState extends State<OpnameScreen> {
                                 }).toList(),
                             ),
                         ),
+
+                        // BATCH PROCUREMENT BANNER (AMBANG BATAS)
+                        if (_lowStockCount > 0)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.notification_important_rounded, color: Color(0xFFD97706), size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$_lowStockCount produk di ambang batas kritis (≤ 5)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E)),
+                                      ),
+                                      const Text(
+                                        'Perlu belanja stok untuk besok.',
+                                        style: TextStyle(fontSize: 10.5, color: Color(0xFFB45309)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFB45309),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  onPressed: _openBatchProcurement,
+                                  icon: const Icon(Icons.send_rounded, size: 12),
+                                  label: const Text('Ajukan Semua', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -392,16 +805,19 @@ class _OpnameScreenState extends State<OpnameScreen> {
                               final item = _filteredList[index];
                               final productId = safeInt(item['product_id']);
                               final systemQty = safeInt(item['stok_sistem']); 
-                              final stokAwal = safeInt(item['stok_awal_hari']);
                               final terjual = safeInt(item['terjual_hari_ini']);
                               final productName = item['nama'] ?? '-'; 
                               final unit = item['unit'] ?? 'pcs';
+                              final int cogs = safeInt(item['cogs']);
                               
                               if (productId == 0) return const SizedBox.shrink();
 
                               final currentStatus = _diffStatus[productId] ?? 'normal';
                               final difference = _diffValue[productId] ?? 0;
                               final diffColor = _getDiffColor(currentStatus);
+                              final currentRealQty = int.tryParse(_qtyControllers[productId]?.text.trim() ?? '') ?? safeInt(item['stok_riil']);
+                              final bool isLowStock = currentRealQty <= 5;
+                              final bool isRequested = _procurementRequests.containsKey(productId);
                               
                               return Container(
                                   decoration: BoxDecoration(
@@ -419,89 +835,199 @@ class _OpnameScreenState extends State<OpnameScreen> {
                                         : null
                                   ),
                                   padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                                          // ICON
-                                          Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(
-                                                  color: Colors.blue.shade50,
-                                                  shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(Icons.inventory_2, color: Colors.blue, size: 24),
-                                          ),
-                                          const SizedBox(width: 16),
+                                          Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                  // ICON
+                                                  Container(
+                                                      padding: const EdgeInsets.all(10),
+                                                      decoration: BoxDecoration(
+                                                          color: Colors.blue.shade50,
+                                                          shape: BoxShape.circle,
+                                                      ),
+                                                      child: const Icon(Icons.inventory_2, color: Colors.blue, size: 24),
+                                                  ),
+                                                  const SizedBox(width: 16),
 
-                                          // DETAILS
-                                          Expanded(
-                                              child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                      Text(productName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                                      const SizedBox(height: 4),
-                                                      Row(
+                                                  // DETAILS
+                                                  Expanded(
+                                                      child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
                                                           children: [
-                                                              _buildPill('Terjual: $terjual', Colors.orange.shade50, Colors.orange.shade800),
+                                                              Text(productName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                                              const SizedBox(height: 4),
+                                                              Wrap(
+                                                                  spacing: 6,
+                                                                  runSpacing: 4,
+                                                                  children: [
+                                                                      _buildPill('Terjual: $terjual', Colors.orange.shade50, Colors.orange.shade800),
+                                                                      if (cogs > 0)
+                                                                          _buildPill('Modal: ${_formatCurrency(cogs)}', Colors.grey.shade100, Colors.grey.shade700),
+                                                                  ],
+                                                              ),
+                                                              const SizedBox(height: 8),
+                                                              Text.rich(
+                                                                  TextSpan(
+                                                                      text: 'Stok Sistem: ',
+                                                                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                                                      children: [
+                                                                          TextSpan(text: '$systemQty $unit', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87))
+                                                                      ]
+                                                                  )
+                                                              )
                                                           ],
                                                       ),
-                                                      const SizedBox(height: 8),
-                                                      Text.rich(
-                                                          TextSpan(
-                                                              text: 'Stok Sistem: ',
-                                                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                                                              children: [
-                                                                  TextSpan(text: '$systemQty $unit', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87))
-                                                              ]
-                                                          )
-                                                      )
-                                                  ],
-                                              ),
-                                          ),
-                                          
-                                          // INPUT
-                                          const SizedBox(width: 12),
-                                          Column(
-                                              crossAxisAlignment: CrossAxisAlignment.end,
-                                              children: [
-                                                  SizedBox(
-                                                      width: 80,
-                                                      child: TextField(
-                                                          controller: _qtyControllers[productId],
-                                                          keyboardType: TextInputType.number,
-                                                          textAlign: TextAlign.center,
-                                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                                                          onChanged: (val) => _calculateDifference(productId, systemQty, val),
-                                                          decoration: InputDecoration(
-                                                              hintText: '0',
-                                                              isDense: true,
-                                                              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                                                              border: OutlineInputBorder(
-                                                                  borderRadius: BorderRadius.circular(12),
-                                                                  borderSide: BorderSide(color: Colors.grey.shade300)
-                                                              ),
-                                                              filled: true,
-                                                              fillColor: Colors.grey.shade50
-                                                          ),
-                                                      ),
                                                   ),
-                                                  if (difference != 0)
-                                                      Padding(
-                                                          padding: const EdgeInsets.only(top: 8),
-                                                          child: Container(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                              decoration: BoxDecoration(
-                                                                  color: diffColor.withOpacity(0.1),
-                                                                  borderRadius: BorderRadius.circular(6)
-                                                              ),
-                                                              child: Text(
-                                                                  '${difference > 0 ? '-' : '+'}${difference.abs()}',
-                                                                  style: TextStyle(color: diffColor, fontWeight: FontWeight.bold, fontSize: 12)
+                                                  
+                                                  // INPUT
+                                                  const SizedBox(width: 12),
+                                                  Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                                      children: [
+                                                          SizedBox(
+                                                              width: 80,
+                                                              child: TextField(
+                                                                  controller: _qtyControllers[productId],
+                                                                  keyboardType: TextInputType.number,
+                                                                  textAlign: TextAlign.center,
+                                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                                                                  onChanged: (val) => _calculateDifference(productId, systemQty, val),
+                                                                  decoration: InputDecoration(
+                                                                      hintText: '0',
+                                                                      isDense: true,
+                                                                      contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                                                                      border: OutlineInputBorder(
+                                                                          borderRadius: BorderRadius.circular(12),
+                                                                          borderSide: BorderSide(color: Colors.grey.shade300)
+                                                                      ),
+                                                                      filled: true,
+                                                                      fillColor: Colors.grey.shade50
+                                                                  ),
                                                               ),
                                                           ),
-                                                      )
+                                                          if (difference != 0)
+                                                              Padding(
+                                                                  padding: const EdgeInsets.only(top: 8),
+                                                                  child: Container(
+                                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                                      decoration: BoxDecoration(
+                                                                          color: diffColor.withOpacity(0.1),
+                                                                          borderRadius: BorderRadius.circular(6)
+                                                                      ),
+                                                                      child: Text(
+                                                                          '${difference > 0 ? '-' : '+'}${difference.abs()}',
+                                                                          style: TextStyle(color: diffColor, fontWeight: FontWeight.bold, fontSize: 12)
+                                                                      ),
+                                                                  ),
+                                                              )
+                                                      ],
+                                                  )
                                               ],
-                                          )
+                                          ),
+
+                                          // --- PROCUREMENT CALLOUT / ACTION ---
+                                          if (isRequested) ...[
+                                              Container(
+                                                  margin: const EdgeInsets.only(top: 12),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                  decoration: BoxDecoration(
+                                                      color: const Color(0xFFF0FDF4),
+                                                      borderRadius: BorderRadius.circular(10),
+                                                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                                                  ),
+                                                  child: Row(
+                                                      children: [
+                                                          const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                              child: Text(
+                                                                  'Pengajuan ${_procurementRequests[productId]!['qty']} $unit terkirim (Menunggu Approval Owner)',
+                                                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                                              ),
+                                                          ),
+                                                      ],
+                                                  ),
+                                              ),
+                                          ] else if (isLowStock) ...[
+                                              Container(
+                                                  margin: const EdgeInsets.only(top: 12),
+                                                  padding: const EdgeInsets.all(10),
+                                                  decoration: BoxDecoration(
+                                                      color: const Color(0xFFFFFBEB),
+                                                      borderRadius: BorderRadius.circular(10),
+                                                      border: Border.all(color: const Color(0xFFFDE68A)),
+                                                  ),
+                                                  child: Row(
+                                                      children: [
+                                                          const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                              child: Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                  children: [
+                                                                      Text(
+                                                                          'Stok Kritis! Sisa $currentRealQty $unit (≤ 5)',
+                                                                          style: const TextStyle(
+                                                                              fontSize: 11.5,
+                                                                              fontWeight: FontWeight.bold,
+                                                                              color: Color(0xFF92400E),
+                                                                          ),
+                                                                      ),
+                                                                      const Text(
+                                                                          'Disarankan restock untuk besok.',
+                                                                          style: TextStyle(fontSize: 10, color: Color(0xFFB45309)),
+                                                                      ),
+                                                                  ],
+                                                              ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          ElevatedButton.icon(
+                                                              style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: const Color(0xFFD97706),
+                                                                  foregroundColor: Colors.white,
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                                  minimumSize: Size.zero,
+                                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                              ),
+                                                              onPressed: () => _openQuickProcurementSheet(context, item, currentRealQty),
+                                                              icon: const Icon(Icons.add_shopping_cart_rounded, size: 14),
+                                                              label: const Text('Ajukan Belanja', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                          ),
+                                                      ],
+                                                  ),
+                                              ),
+                                          ] else ...[
+                                              Padding(
+                                                  padding: const EdgeInsets.only(top: 8),
+                                                  child: Row(
+                                                      mainAxisAlignment: MainAxisAlignment.end,
+                                                      children: [
+                                                          InkWell(
+                                                              onTap: () => _openQuickProcurementSheet(context, item, currentRealQty),
+                                                              borderRadius: BorderRadius.circular(6),
+                                                              child: Padding(
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                                  child: Row(
+                                                                      mainAxisSize: MainAxisSize.min,
+                                                                      children: [
+                                                                          Icon(Icons.add_shopping_cart_rounded, size: 13, color: Colors.blue.shade700),
+                                                                          const SizedBox(width: 4),
+                                                                          Text(
+                                                                              '+ Ajukan Belanja',
+                                                                              style: TextStyle(fontSize: 11, color: Colors.blue.shade700, fontWeight: FontWeight.w600),
+                                                                          ),
+                                                                      ],
+                                                                  ),
+                                                              ),
+                                                          ),
+                                                      ],
+                                                  ),
+                                              ),
+                                          ],
                                       ],
                                   ),
                               );
