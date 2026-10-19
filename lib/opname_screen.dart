@@ -151,10 +151,17 @@ class _OpnameScreenState extends State<OpnameScreen> {
             final productId = safeInt(item['product_id']);
             final realQtyDB = safeInt(item['stok_riil']);
             final systemQty = safeInt(item['stok_sistem']); 
+            final pendingQty = safeInt(item['pending_procurement_qty']);
             
             if (productId != 0) {
               _qtyControllers[productId] = TextEditingController(text: realQtyDB.toString());
               _calculateDifference(productId, systemQty, realQtyDB.toString());
+              if (pendingQty > 0) {
+                _procurementRequests[productId] = {
+                  'qty': pendingQty,
+                  'status': 'PENDING',
+                };
+              }
             }
           }
           _isLoading = false; 
@@ -277,7 +284,7 @@ class _OpnameScreenState extends State<OpnameScreen> {
     final unit = item['unit'] ?? 'pcs';
     final int cogs = safeInt(item['cogs']);
 
-    int buyQty = 50;
+    int buyQty = _procurementRequests[productId]?['qty'] ?? 50;
     final buyQtyController = TextEditingController(text: buyQty.toString());
     final notesController = TextEditingController(text: 'Stok sisa $currentRealQty $unit saat opname malam');
 
@@ -930,25 +937,31 @@ class _OpnameScreenState extends State<OpnameScreen> {
 
                                           // --- PROCUREMENT CALLOUT / ACTION ---
                                           if (isRequested) ...[
-                                              Container(
-                                                  margin: const EdgeInsets.only(top: 12),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  decoration: BoxDecoration(
-                                                      color: const Color(0xFFF0FDF4),
-                                                      borderRadius: BorderRadius.circular(10),
-                                                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                                                  ),
-                                                  child: Row(
-                                                      children: [
-                                                          const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
-                                                          const SizedBox(width: 8),
-                                                          Expanded(
-                                                              child: Text(
-                                                                  'Pengajuan ${_procurementRequests[productId]!['qty']} $unit terkirim (Menunggu Approval Owner)',
-                                                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                              InkWell(
+                                                  onTap: () => _openQuickProcurementSheet(context, item, currentRealQty),
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  child: Container(
+                                                      margin: const EdgeInsets.only(top: 12),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                      decoration: BoxDecoration(
+                                                          color: const Color(0xFFF0FDF4),
+                                                          borderRadius: BorderRadius.circular(10),
+                                                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                                                      ),
+                                                      child: Row(
+                                                          children: [
+                                                              const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                                                              const SizedBox(width: 8),
+                                                              Expanded(
+                                                                  child: Text(
+                                                                      'Pengajuan ${_procurementRequests[productId]!['qty']} $unit terkirim (Menunggu Approval Owner)',
+                                                                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                                                                  ),
                                                               ),
-                                                          ),
-                                                      ],
+                                                              const SizedBox(width: 4),
+                                                              const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Color(0xFF16A34A)),
+                                                          ],
+                                                      ),
                                                   ),
                                               ),
                                           ] else if (isLowStock) ...[
