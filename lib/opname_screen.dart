@@ -273,8 +273,9 @@ class _OpnameScreenState extends State<OpnameScreen> {
   int get _lowStockCount {
     return _masterList.where((it) {
       final pid = safeInt(it['product_id']);
+      final threshold = (it['low_stock_threshold'] as num?)?.toInt() ?? 10;
       final rq = int.tryParse(_qtyControllers[pid]?.text.trim() ?? '') ?? safeInt(it['stok_riil']);
-      return rq <= 5 && !_procurementRequests.containsKey(pid);
+      return rq <= threshold && !_procurementRequests.containsKey(pid);
     }).length;
   }
 
@@ -582,17 +583,20 @@ class _OpnameScreenState extends State<OpnameScreen> {
   void _openBatchProcurement() async {
     final lowStockItems = _masterList.where((it) {
       final pid = safeInt(it['product_id']);
+      final threshold = (it['low_stock_threshold'] as num?)?.toInt() ?? 10;
       final rq = int.tryParse(_qtyControllers[pid]?.text.trim() ?? '') ?? safeInt(it['stok_riil']);
-      return rq <= 5 && !_procurementRequests.containsKey(pid);
+      return rq <= threshold && !_procurementRequests.containsKey(pid);
     }).map((it) {
       final pid = safeInt(it['product_id']);
+      final threshold = (it['low_stock_threshold'] as num?)?.toInt() ?? 10;
       final rq = int.tryParse(_qtyControllers[pid]?.text.trim() ?? '') ?? safeInt(it['stok_riil']);
+      final suggestedQty = ((threshold * 2) - rq) > 0 ? ((threshold * 2) - rq) : 20;
       return {
         'product_id': pid,
         'name': it['nama'],
         'cogs': safeInt(it['cogs']),
         'stock': rq,
-        'suggested_qty': 50,
+        'suggested_qty': suggestedQty,
       };
     }).toList();
 
@@ -761,7 +765,7 @@ class _OpnameScreenState extends State<OpnameScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        '$_lowStockCount produk di ambang batas kritis (≤ 5)',
+                                        '$_lowStockCount produk di ambang batas kritis (≤ Min Stok)',
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF92400E)),
                                       ),
                                       const Text(
@@ -823,7 +827,8 @@ class _OpnameScreenState extends State<OpnameScreen> {
                               final difference = _diffValue[productId] ?? 0;
                               final diffColor = _getDiffColor(currentStatus);
                               final currentRealQty = int.tryParse(_qtyControllers[productId]?.text.trim() ?? '') ?? safeInt(item['stok_riil']);
-                              final bool isLowStock = currentRealQty <= 5;
+                              final threshold = (item['low_stock_threshold'] as num?)?.toInt() ?? 10;
+                              final bool isLowStock = currentRealQty <= threshold;
                               final bool isRequested = _procurementRequests.containsKey(productId);
                               
                               return Container(
@@ -871,6 +876,7 @@ class _OpnameScreenState extends State<OpnameScreen> {
                                                                   runSpacing: 4,
                                                                   children: [
                                                                       _buildPill('Terjual: $terjual', Colors.orange.shade50, Colors.orange.shade800),
+                                                                      _buildPill('Min: $threshold', Colors.purple.shade50, Colors.purple.shade700),
                                                                       if (cogs > 0)
                                                                           _buildPill('Modal: ${_formatCurrency(cogs)}', Colors.grey.shade100, Colors.grey.shade700),
                                                                   ],
@@ -982,7 +988,7 @@ class _OpnameScreenState extends State<OpnameScreen> {
                                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                                   children: [
                                                                       Text(
-                                                                          'Stok Kritis! Sisa $currentRealQty $unit (≤ 5)',
+                                                                          'Stok Kritis! Sisa $currentRealQty $unit (≤ Min $threshold)',
                                                                           style: const TextStyle(
                                                                               fontSize: 11.5,
                                                                               fontWeight: FontWeight.bold,

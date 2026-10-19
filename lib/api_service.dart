@@ -1232,6 +1232,23 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>?> getProcurementCatalog() async {
+    if (_token == null) return null;
+    final url = Uri.parse('$_baseUrl/procurements/catalog');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $_token', 'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> createProcurement({
     required List<Map<String, dynamic>> items,
     String? notes,
