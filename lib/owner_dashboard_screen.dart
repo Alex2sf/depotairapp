@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'api_service.dart';
 import 'owner_shift_monitoring_screen.dart';
+import 'stock_procurement_screen.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   final VoidCallback? onNavigateToShiftTab;
@@ -595,6 +596,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
         // SHORTCUT KE TAB MONITORING SHIFT & BUKTI SETORAN
         _buildShiftShortcutCard(),
+        const SizedBox(height: 12),
+        // SHORTCUT KE PERSETUJUAN BELANJA STOK OWNER
+        _buildProcurementShortcutCard(),
 
         const SizedBox(height: 24),
 
@@ -849,6 +853,83 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             child: const Text("Buka"),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProcurementShortcutCard() {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StockProcurementScreen()),
+        );
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFBAE6FD)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0284C7).withValues(alpha: 0.06),
+              blurRadius: 15,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7), size: 24),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Persetujuan Belanja Stok",
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    "Review belanja stok kasir & potong kas besar",
+                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StockProcurementScreen()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              child: const Text("Buka"),
+            ),
+          ],
+        ),
       ),
     );
   }

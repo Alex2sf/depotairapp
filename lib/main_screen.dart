@@ -8,6 +8,7 @@ import 'deposit_to_main_screen.dart';
 import 'order_history_screen.dart';
 import 'settings_screen.dart';
 import 'stock_adjustment_screen.dart';
+import 'stock_procurement_screen.dart';
 import 'cashier_purchase_screen.dart';
 import 'order_detail_screen.dart';
 import 'owner_shift_monitoring_screen.dart';
@@ -487,6 +488,15 @@ class _MainScreenState extends State<MainScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFullWidthTile(
+                      title: "Pengadaan Stok Barang",
+                      subtitle: "Ajukan pembelian stok ke Owner & konfirmasi barang sampai",
+                      icon: Icons.add_shopping_cart_rounded,
+                      badgeColor: const Color(0xFF0284C7),
+                      bgColor: const Color(0xFFE0F2FE),
+                      onTap: () => _navigateToInternal(const StockProcurementScreen()),
                     ),
                     if (isOwnerOrAdmin) ...[
                       const SizedBox(height: 12),

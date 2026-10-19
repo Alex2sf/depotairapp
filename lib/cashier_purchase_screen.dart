@@ -17,7 +17,7 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
 
   // Form State
   final _formKey = GlobalKey<FormState>();
-  String _category = 'STOCK'; // 'STOCK' or 'OPERATIONAL'
+  String _category = 'OPERATIONAL'; // strictly OPERATIONAL (No stock purchases from drawer)
   int? _selectedProductId;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _qtyController = TextEditingController();
@@ -618,156 +618,29 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
             ),
             const SizedBox(height: 24),
 
-            // TOGGLE KATEGORI BELANJA
-            const Text('Kategori Belanja', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-            const SizedBox(height: 10),
+            // INFO PENGELUARAN LACI KHUSUS OPERASIONAL
             Container(
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFDE68A)),
               ),
-              padding: const EdgeInsets.all(4),
-              child: Row(
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Icon(Icons.storefront_rounded, color: Color(0xFFD97706), size: 24),
+                  SizedBox(width: 10),
                   Expanded(
-                    child: _buildCategoryToggle('Stok Barang Jualan', 'STOCK', Icons.inventory_2, Colors.teal),
-                  ),
-                  Expanded(
-                    child: _buildCategoryToggle('Operasional Toko', 'OPERATIONAL', Icons.storefront, Colors.orange.shade800),
+                    child: Text(
+                      'Uang laci kasir HANYA untuk operasional harian (bensin kurir, es batu, konsumsi, lakban, dll).\n\nPengadaan stok barang toko (Galon, Tutup, dll) tidak boleh dari uang laci, wajib melalui menu Pengajuan Pengadaan Stok agar dipotong dari Kas Besar setelah disetujui Owner.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            // SECTION KHUSUS STOK BARANG
-            if (isStock) ...[
-              const Text('Pilih Barang yang Dibeli', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-              const SizedBox(height: 8),
-              if (_isFetchingProducts)
-                const Center(child: CircularProgressIndicator())
-              else if (_products.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10)),
-                  child: const Text('Belum ada data produk tersedia di sistem.', style: TextStyle(color: Colors.orange)),
-                )
-              else
-                Builder(
-                  builder: (context) {
-                  final selectedProd = _products.firstWhere(
-                    (p) => p['id'] == _selectedProductId,
-                    orElse: () => null,
-                  );
-
-                  return InkWell(
-                    onTap: _showProductSearchSheet,
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE0F2FE),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.search_rounded, color: Color(0xFF0284C7), size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  selectedProd != null ? selectedProd['name'] : 'Klik untuk Cari / Pilih Barang',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: selectedProd != null ? const Color(0xFF0F172A) : Colors.grey.shade500,
-                                  ),
-                                ),
-                                if (selectedProd != null) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    'Stok saat ini: ${selectedProd['stock']} ${selectedProd['unit'] ?? 'pcs'}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF64748B), size: 28),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // INPUT JUMLAH BARANG (QUANTITY)
-              const Text('Jumlah Barang Dibeli', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _qtyController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        hintText: 'Contoh: 50',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-                        suffixText: _products.firstWhere((p) => p['id'] == _selectedProductId, orElse: () => null)?['unit'] ?? 'pcs',
-                      ),
-                      validator: (val) {
-                        if (isStock && (val == null || val.isEmpty)) return 'Wajib diisi';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Quick Qty Preset
-                  ...['+10', '+50', '+100'].map((preset) => Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: InkWell(
-                      onTap: () {
-                        int cur = int.tryParse(_qtyController.text) ?? 0;
-                        int add = int.parse(preset.replaceAll('+', ''));
-                        setState(() => _qtyController.text = (cur + add).toString());
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.blue.shade100),
-                        ),
-                        child: Text(preset, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800)),
-                      ),
-                    ),
-                  )),
-                ],
-              ),
-              const SizedBox(height: 20),
-            ],
+            const SizedBox(height: 20),
 
             // NOMINAL UANG BELANJA (DIPOTONG DARI LACI)
             const Text('Total Uang Belanja (Dari Laci)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),

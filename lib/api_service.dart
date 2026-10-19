@@ -1193,4 +1193,138 @@ class ApiService {
       return null;
     }
   }
+
+  // --- FITUR PENGADAAN STOK (PROCUREMENT) ---
+  Future<Map<String, dynamic>?> getProcurements({String? status, int page = 1}) async {
+    if (_token == null) return null;
+    final Map<String, String> queryParams = {'page': page.toString()};
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+
+    final url = Uri.parse('$_baseUrl/procurements').replace(queryParameters: queryParams);
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $_token', 'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getProcurementDetail(int id) async {
+    if (_token == null) return null;
+    final url = Uri.parse('$_baseUrl/procurements/$id');
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $_token', 'Accept': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> createProcurement({
+    required List<Map<String, dynamic>> items,
+    String? notes,
+  }) async {
+    if (_token == null) return {'success': false, 'message': 'Sesi habis'};
+    final url = Uri.parse('$_baseUrl/procurements');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({
+          'items': items,
+          'notes': notes,
+        }),
+      );
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Pengajuan berhasil dibuat', 'data': data['data']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Gagal membuat pengajuan'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> reviewProcurement({
+    required int id,
+    required String action, // 'APPROVE' or 'REJECT'
+    String? ownerNotes,
+    List<Map<String, dynamic>>? items,
+  }) async {
+    if (_token == null) return {'success': false, 'message': 'Sesi habis'};
+    final url = Uri.parse('$_baseUrl/procurements/$id/review');
+    try {
+      final bodyMap = <String, dynamic>{
+        'action': action,
+        'owner_notes': ownerNotes,
+      };
+      if (items != null) bodyMap['items'] = items;
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(bodyMap),
+      );
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Pengajuan berhasil diproses', 'data': data['data']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Gagal memproses pengajuan'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> receiveProcurement({
+    required int id,
+    File? proofImage,
+  }) async {
+    if (_token == null) return {'success': false, 'message': 'Sesi habis'};
+    final url = Uri.parse('$_baseUrl/procurements/$id/receive');
+    try {
+      final request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $_token';
+      request.headers['Accept'] = 'application/json';
+
+      if (proofImage != null) {
+        request.files.add(await http.MultipartFile.fromPath('proof_image', proofImage.path));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': data['message'] ?? 'Barang berhasil diterima!', 'data': data['data']};
+      } else {
+        return {'success': false, 'message': data['message'] ?? 'Gagal menerima barang.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan jaringan: $e'};
+    }
+  }
 }

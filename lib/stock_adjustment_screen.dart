@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api_service.dart';
+import 'stock_procurement_screen.dart';
 
 class StockAdjustmentScreen extends StatefulWidget {
   const StockAdjustmentScreen({super.key});
@@ -161,6 +162,41 @@ class _StockAdjustmentScreenState extends State<StockAdjustmentScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+
+          // PROCUREMENT BANNER
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StockProcurementScreen()),
+                );
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7), size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "Stok menipis? Ajukan pembelian stok ke Owner",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFF1E40AF), size: 14),
+                  ],
+                ),
+              ),
             ),
           ),
 
