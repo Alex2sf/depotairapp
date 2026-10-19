@@ -1082,7 +1082,6 @@ class _StockProcurementCreateScreenState extends State<StockProcurementCreateScr
                 // STICKY TOP: 🔍 SEARCH BAR & 🏷️ FILTER KATEGORI DI ATAS
                 // ========================================================
                 Container(
-                  color: Colors.white,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                   decoration: BoxDecoration(
                     color: Colors.white,
