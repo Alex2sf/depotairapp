@@ -962,6 +962,27 @@ class ApiService {
     }
   }
 
+  // --- ENDPOINT POST /owner/bulk-complete-old-orders ---
+  Future<Map<String, dynamic>> bulkCompleteOldOrders({int days = 3}) async {
+    if (_token == null) return {'success': false, 'message': 'Belum login'};
+    final url = Uri.parse('$_baseUrl/owner/bulk-complete-old-orders');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode({'days': days}),
+      );
+      final Map<String, dynamic> data = json.decode(response.body);
+      return data;
+    } catch (e) {
+      return {'success': false, 'message': 'Gagal terhubung ke server: $e'};
+    }
+  }
+
   // --- ENDPOINT GET /owner/transactions (Riwayat Lengkap) ---
   Future<Map<String, dynamic>?> getOwnerTransactions({
     required String startDate,

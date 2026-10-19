@@ -15,6 +15,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   final ApiService _apiService = ApiService();
   Map<String, dynamic>? _dashboardData;
   bool _isLoading = true;
+  bool _isCompletingOldOrders = false;
 
   // Default: Hari Ini
   DateTime? _startDate = DateTime.now();
@@ -37,6 +38,68 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _dashboardData = result;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleBulkCompleteOldOrders() async {
+    final int count = _dashboardData?['old_incomplete_count'] ?? 0;
+    final int amount = _dashboardData?['old_incomplete_amount'] ?? 0;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.bolt_rounded, color: Color(0xFFD97706), size: 28),
+            SizedBox(width: 8),
+            Expanded(child: Text("Selesaikan Pesanan Lama?")),
+          ],
+        ),
+        content: Text(
+          "Apakah Anda yakin ingin menyelesaikan $count nota pesanan yang menggantung lebih dari 3 hari lalu senilai ${_formatCurrency(amount)}?\n\nSemua nota ini akan ditandai Selesai (COMPLETE). Pesanan 3 hari terakhir tetap berjalan normal.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text("Ya, Selesaikan Semua"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isCompletingOldOrders = true);
+    final res = await _apiService.bulkCompleteOldOrders(days: 3);
+    setState(() => _isCompletingOldOrders = false);
+
+    if (!mounted) return;
+
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Berhasil menyelesaikan pesanan lama!'),
+          backgroundColor: const Color(0xFF16A34A),
+        ),
+      );
+      _fetchDashboardData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Gagal menyelesaikan pesanan'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -96,7 +159,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _isLoading
                       ? _buildLoadingCard()
-                      : _buildHeroOmzetCard(_dashboardData?['omzet'] ?? 0),
+                      : _buildHeroOmzetCard(
+                          _dashboardData?['omzet'] ?? 0,
+                          pendingOmzet: _dashboardData?['pending_omzet'] ?? 0,
+                        ),
                 ),
               ),
 
@@ -272,7 +338,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     );
   }
 
-  Widget _buildHeroOmzetCard(num omzet) {
+  Widget _buildHeroOmzetCard(num omzet, {num pendingOmzet = 0}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
@@ -303,7 +369,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ),
               const SizedBox(width: 8),
               const Text(
-                'TOTAL OMZET PERIODE INI',
+                'TOTAL OMZET SELESAI',
                 style: TextStyle(
                   color: Color(0xFF64748B),
                   fontWeight: FontWeight.w800,
@@ -337,7 +403,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                 Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF16A34A)),
                 SizedBox(width: 4),
                 Text(
-                  "Penjualan Kotor Akumulatif",
+                  "Omzet Sah Pesanan Selesai",
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -347,6 +413,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ],
             ),
           ),
+          if (pendingOmzet > 0) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB), // Amber 50
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.local_shipping_outlined, size: 12, color: Color(0xFFD97706)),
+                  const SizedBox(width: 4),
+                  Text(
+                    "Siap / Diantar (Pending): ${_formatCurrency(pendingOmzet)}",
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -357,9 +449,150 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     final pemasukan = data['pemasukan'] ?? {};
     final totalKas = (data['kas_besar'] ?? 0) + (data['kas_kasir'] ?? 0);
 
+    final int oldIncompleteCount = data['old_incomplete_count'] ?? 0;
+    final int oldIncompleteAmount = data['old_incomplete_amount'] ?? 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // KARTU PESANAN GANTUNG LAMA (> 3 HARI) - SELALU MUNCUL
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: oldIncompleteCount > 0 ? const Color(0xFFFFFBEB) : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: oldIncompleteCount > 0 ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (oldIncompleteCount > 0 ? const Color(0xFFD97706) : Colors.black)
+                    .withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: oldIncompleteCount > 0 ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.bolt_rounded,
+                      color: oldIncompleteCount > 0 ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              "Pesanan Gantung",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: oldIncompleteCount > 0
+                                    ? const Color(0xFFD97706)
+                                    : const Color(0xFF10B981),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                oldIncompleteCount > 0
+                                    ? "$oldIncompleteCount Nota"
+                                    : "Bersih (0 Nota)",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          oldIncompleteCount > 0
+                              ? "Nilai: ${_formatCurrency(oldIncompleteAmount)} (> 3 hari lalu)"
+                              : "Semua pesanan > 3 hari sudah beres",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: oldIncompleteCount > 0 ? const Color(0xFF78350F) : const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                oldIncompleteCount > 0
+                    ? "Terdapat $oldIncompleteCount pesanan menggantung lebih dari 3 hari lalu. Klik tombol di bawah untuk menyelesaikan semuanya secara instan. Pesanan 3 hari terakhir tidak akan terpengaruh."
+                    : "Pesanan 3 hari terakhir tetap dibiarkan berjalan normal dan tidak ada pesanan gantung lama.",
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: oldIncompleteCount > 0 ? const Color(0xFF78350F) : const Color(0xFF64748B),
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (_isCompletingOldOrders || oldIncompleteCount == 0)
+                      ? null
+                      : _handleBulkCompleteOldOrders,
+                  icon: _isCompletingOldOrders
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.done_all_rounded, size: 18),
+                  label: Text(
+                    _isCompletingOldOrders
+                        ? "Memproses Selesai..."
+                        : oldIncompleteCount > 0
+                            ? "Selesaikan Semua ($oldIncompleteCount Nota > 3 Hari Lalu)"
+                            : "Tidak Ada Pesanan Gantung Lama",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: oldIncompleteCount > 0 ? const Color(0xFFD97706) : Colors.grey.shade400,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    disabledForegroundColor: Colors.grey.shade600,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
         // SHORTCUT KE TAB MONITORING SHIFT & BUKTI SETORAN
         _buildShiftShortcutCard(),
 
