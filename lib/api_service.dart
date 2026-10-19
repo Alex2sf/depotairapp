@@ -127,7 +127,7 @@ class ApiService {
       } else {
         return {
             'success': false, 
-            'message': 'Gagal: ${response.statusCode}. \nRespons: ${response.body}'
+            'message': data['message'] ?? 'Gagal: ${response.statusCode}'
         };
       }
     } catch (e) {

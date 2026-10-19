@@ -1068,7 +1068,7 @@ class _MainScreenState extends State<MainScreen> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: ElevatedButton.icon(
                   onPressed: () {
                     _apiService.logout();
                     Navigator.of(context).pushAndRemoveUntil(
@@ -1076,38 +1076,16 @@ class _MainScreenState extends State<MainScreen> {
                       (route) => false,
                     );
                   },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF991B1B),
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text(
-                    "Ganti Kasir",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CloseShiftScreen()),
-                    );
-                    if (mounted) _refreshHomeData();
-                  },
-                  icon: const Icon(Icons.lock_open_rounded, size: 16),
-                  label: const Text(
-                    "Serah Terima Laci",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  icon: const Icon(Icons.logout_rounded, size: 16),
+                  label: Text(
+                    "Keluar (Minta $otherName Tutup Shift)",
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFDC2626),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
@@ -1135,7 +1113,7 @@ class _MainScreenState extends State<MainScreen> {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                "Laci Terkunci",
+                "Akses Kasir Ditolak",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
@@ -1171,70 +1149,42 @@ class _MainScreenState extends State<MainScreen> {
             ),
             const SizedBox(height: 14),
             const Text(
-              "Untuk mencegah selisih uang dan menjaga tanggung jawab kasir, transaksi POS tidak dapat dibuka sebelum shift sebelumnya diselesaikan.",
+              "Demi integritas dan tanggung jawab uang laci fisik, kasir lain tidak diizinkan masuk atau bertransaksi sebelum shift kasir sebelumnya diselesaikan.",
               style: TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.4),
             ),
             const SizedBox(height: 10),
-            const Text(
-              "Silakan lakukan serah terima laci sekarang, atau minta kasir sebelumnya untuk login dan menutup shiftnya.",
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+            Text(
+              "Minta $otherName untuk login dan menutup shiftnya terlebih dahulu.",
+              style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.bold),
             ),
           ],
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _apiService.logout();
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const RoleBasedRouter()),
-                      (route) => false,
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF64748B),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text(
-                    "Ganti Kasir",
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                  ),
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _apiService.logout();
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const RoleBasedRouter()),
+                  (route) => false,
+                );
+              },
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text(
+                "KELUAR / LOGOUT",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CloseShiftScreen()),
-                    );
-                    if (mounted) {
-                      _refreshHomeData();
-                    }
-                  },
-                  icon: const Icon(Icons.lock_open_rounded, size: 16),
-                  label: const Text(
-                    "Serah Terima",
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFDC2626),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-            ],
+            ),
           ),
         ],
       ),
