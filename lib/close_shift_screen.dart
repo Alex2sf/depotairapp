@@ -96,16 +96,16 @@ class _CloseShiftScreenState extends State<CloseShiftScreen> {
             unfinishedOrders: unfinished.cast<Map<String, dynamic>>(),
           );
 
-          if (reviewOrders == true) {
-            if (!mounted) return;
+          if (reviewOrders == true && mounted) {
             // Pengguna memilih untuk memeriksa pesanan terlebih dahulu
             await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
             );
             if (mounted) _fetchShiftData();
-            return;
           }
+          // WAJIB RETURN: Tutup shift digembok keras sampai seluruh pesanan berstatus COMPLETE atau CANCELLED
+          return;
         }
       }
     } catch (_) {}

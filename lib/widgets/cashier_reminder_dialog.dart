@@ -318,28 +318,28 @@ class UnfinishedOrdersWarningDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Ikon Peringatan Oranye
+            // Ikon Gembok Merah Peringatan
             Container(
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: Colors.amber.shade50,
+                color: const Color(0xFFFEF2F2),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.amber.shade200, width: 2),
+                border: Border.all(color: const Color(0xFFFECACA), width: 2),
               ),
-              child: Icon(
-                Icons.warning_amber_rounded,
+              child: const Icon(
+                Icons.lock_rounded,
                 size: 36,
-                color: Colors.amber.shade800,
+                color: Color(0xFFDC2626),
               ),
             ),
             const SizedBox(height: 16),
 
             // Judul
             const Text(
-              "Pesanan Belum Selesai!",
+              "Tutup Shift Terkunci!",
               style: TextStyle(
-                fontSize: 19,
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF0F172A),
               ),
@@ -348,7 +348,7 @@ class UnfinishedOrdersWarningDialog extends StatelessWidget {
 
             // Pesan
             Text(
-              "Terdapat ${unfinishedOrders.length} pesanan yang belum diselesaikan. Sebaiknya selesaikan pesanan terlebih dahulu agar pencatatan kas dan stok saat tutup shift tidak berselisih.",
+              "Terdapat ${unfinishedOrders.length} pesanan yang belum selesai. Seluruh pesanan kurir/hari ini wajib berstatus Selesai (COMPLETE) atau Dibatalkan (CANCEL) agar uang dan stok tidak berselisih.",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -413,14 +413,15 @@ class UnfinishedOrdersWarningDialog extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 46,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, true), // true: mau periksa pesanan
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0284C7),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text(
+                label: const Text(
                   "Periksa & Selesaikan Pesanan",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
@@ -428,14 +429,14 @@ class UnfinishedOrdersWarningDialog extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Tombol Tetap Lanjut Tutup Shift
+            // Tombol Batal / Kembali (Tidak menutup shift)
             SizedBox(
               width: double.infinity,
               height: 44,
               child: TextButton(
-                onPressed: () => Navigator.pop(context, false), // false: abaikan & lanjut
+                onPressed: () => Navigator.pop(context, false), // false: batal, jangan tutup shift
                 child: Text(
-                  "Tetap Lanjut Tutup Shift Saja",
+                  "Kembali (Batal)",
                   style: TextStyle(
                     color: Colors.blueGrey.shade600,
                     fontWeight: FontWeight.w600,
