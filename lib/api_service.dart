@@ -19,6 +19,19 @@ class ApiService {
   static String? _role;
   static const String _tokenKey = 'authToken';
   static const String _roleKey = 'authRole';
+  static const String _deviceIdKey = 'unique_device_id';
+
+  static Future<String> getOrGenerateDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? deviceId = prefs.getString(_deviceIdKey);
+    if (deviceId == null || deviceId.isEmpty) {
+      final platform = kIsWeb ? 'Web' : 'Mobile';
+      final randomSuffix = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+      deviceId = "${platform}_${randomSuffix}";
+      await prefs.setString(_deviceIdKey, deviceId);
+    }
+    return deviceId;
+  }
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -76,7 +89,10 @@ class ApiService {
   }
 
   // --- ENDPOINT LOGIN ---
-  Future<Map<String, dynamic>> login(String email, String password, String deviceName) async {
+  Future<Map<String, dynamic>> login(String email, String password, [String? deviceName]) async {
+    final effectiveDeviceName = (deviceName != null && deviceName.isNotEmpty && deviceName != 'FlutterAppDevice')
+        ? deviceName
+        : await getOrGenerateDeviceId();
     final url = Uri.parse('$_baseUrl/login');
     print('DEBUG LOGIN TRYING: $url'); 
 
@@ -98,7 +114,7 @@ class ApiService {
         body: json.encode({
           'email': email,
           'password': password,
-          'device_name': deviceName,
+          'device_name': effectiveDeviceName,
         }),
       ).timeout(const Duration(seconds: 60)); 
       

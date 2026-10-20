@@ -196,10 +196,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
+      final deviceId = await ApiService.getOrGenerateDeviceId();
       final result = await _apiService.login(
         email,
         password,
-        'FlutterAppDevice',
+        deviceId,
       );
 
       setState(() => _isLoading = false);
