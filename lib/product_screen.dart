@@ -51,7 +51,10 @@ class _ProductScreenState extends State<ProductScreen> {
     final result = await _apiService.getProducts(); 
 
     if (mounted) {
-      final List<dynamic> products = result?['data'] ?? [];
+      final List<dynamic> products = (result?['data'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [];
       final List<dynamic> typeOptionsRaw = result?['filter_options']?['product_types'] ?? [];
 
       setState(() {
@@ -101,10 +104,93 @@ class _ProductScreenState extends State<ProductScreen> {
       }).toList();
     }
     
+    // Sorting: Produk Favorit (is_favorite == true) selalu di paling atas
+    results = List<dynamic>.from(results);
+    results.sort((a, b) {
+      final aFav = a['is_favorite'] == true ? 1 : 0;
+      final bFav = b['is_favorite'] == true ? 1 : 0;
+      if (aFav != bFav) {
+        return bFav.compareTo(aFav); // 1 (favorit) tampil lebih dulu daripada 0
+      }
+      return (a['name'] ?? '').toString().toLowerCase().compareTo((b['name'] ?? '').toString().toLowerCase());
+    });
+
     if (mounted) {
       setState(() {
         _products = results; 
       });
+    }
+  }
+
+  // --- TOGGLE FAVORIT PRODUK (PIN TO TOP) ---
+  Future<void> _toggleFavorite(Map<String, dynamic> product) async {
+    final int productId = int.parse(product['id'].toString());
+    final bool currentStatus = product['is_favorite'] == true;
+    final bool newStatus = !currentStatus;
+
+    // Optimistic UI update: langsung ubah di layar & urutkan ulang
+    setState(() {
+      product['is_favorite'] = newStatus;
+      for (var p in _masterProducts) {
+        if (int.parse(p['id'].toString()) == productId) {
+          p['is_favorite'] = newStatus;
+          break;
+        }
+      }
+      _runFilter();
+    });
+
+    HapticFeedback.lightImpact();
+
+    final success = await _apiService.toggleProductFavorite(productId);
+    if (!success && mounted) {
+      // Revert jika request gagal
+      setState(() {
+        product['is_favorite'] = currentStatus;
+        for (var p in _masterProducts) {
+          if (int.parse(p['id'].toString()) == productId) {
+            p['is_favorite'] = currentStatus;
+            break;
+          }
+        }
+        _runFilter();
+      });
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal memperbarui status favorit. Periksa koneksi internet.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                newStatus ? Icons.favorite : Icons.favorite_border,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  newStatus
+                      ? '"${product['name']}" ditambahkan ke favorit (naik ke atas)'
+                      : '"${product['name']}" dihapus dari favorit',
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: newStatus ? Colors.pink.shade700 : Colors.grey.shade800,
+          duration: const Duration(milliseconds: 1400),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -465,6 +551,38 @@ class _ProductScreenState extends State<ProductScreen> {
                                                 child: const Text('STOK TIPIS', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                                               ),
                                             ),
+                                          // TOMBOL FAVORIT (LOVE)
+                                          Positioned(
+                                            top: 6,
+                                            right: 6,
+                                            child: GestureDetector(
+                                              onTap: () => _toggleFavorite(product),
+                                              behavior: HitTestBehavior.opaque,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white.withOpacity(0.9),
+                                                  shape: BoxShape.circle,
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.12),
+                                                      blurRadius: 4,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Icon(
+                                                  product['is_favorite'] == true
+                                                      ? Icons.favorite
+                                                      : Icons.favorite_border,
+                                                  size: 18,
+                                                  color: product['is_favorite'] == true
+                                                      ? Colors.red
+                                                      : Colors.grey.shade400,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),

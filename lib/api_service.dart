@@ -228,6 +228,28 @@ class ApiService {
     }
   }
 
+  // --- ENDPOINT TOGGLE PRODUCT FAVORITE ---
+  Future<bool> toggleProductFavorite(int productId) async {
+    if (_token == null) return false;
+    final url = Uri.parse('$_baseUrl/products/$productId/toggle-favorite');
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // --- ENDPOINT GET OPNAME LIST ---
   Future<Map<String, dynamic>?> getOpnameList() async {
     if (_token == null) return null;
