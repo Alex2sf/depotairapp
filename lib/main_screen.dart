@@ -7,7 +7,6 @@ import 'close_shift_screen.dart';
 import 'deposit_to_main_screen.dart';
 import 'order_history_screen.dart';
 import 'settings_screen.dart';
-import 'stock_adjustment_screen.dart';
 import 'stock_procurement_screen.dart';
 import 'cashier_purchase_screen.dart';
 import 'order_detail_screen.dart';
@@ -465,32 +464,6 @@ class _MainScreenState extends State<MainScreen> {
                       subtitle: "Pantau fisik galon, tutup, dan tisu",
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildActionTile(
-                            title: "Stok Opname",
-                            subtitle: "Audit Fisik Galon",
-                            icon: Icons.inventory_2_rounded,
-                            badgeColor: const Color(0xFF059669),
-                            bgColor: const Color(0xFFD1FAE5),
-                            onTap: () => _navigateToInternal(const OpnameScreen()),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildActionTile(
-                            title: "Kelola Stok",
-                            subtitle: "Restock & Rusak",
-                            icon: Icons.sync_alt_rounded,
-                            badgeColor: const Color(0xFFD97706),
-                            bgColor: const Color(0xFFFEF3C7),
-                            onTap: () => _navigateToInternal(const StockAdjustmentScreen()),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
                     _buildFullWidthTile(
                       title: "Pengadaan Stok Barang",
                       subtitle: "Ajukan pembelian stok ke Owner & konfirmasi barang sampai",
@@ -498,6 +471,15 @@ class _MainScreenState extends State<MainScreen> {
                       badgeColor: const Color(0xFF0284C7),
                       bgColor: const Color(0xFFE0F2FE),
                       onTap: () => _navigateToInternal(const StockProcurementScreen()),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFullWidthTile(
+                      title: "Stok Opname",
+                      subtitle: "Audit fisik galon, tutup, dan tisu toko secara berkala",
+                      icon: Icons.inventory_2_rounded,
+                      badgeColor: const Color(0xFF059669),
+                      bgColor: const Color(0xFFD1FAE5),
+                      onTap: () => _navigateToInternal(const OpnameScreen()),
                     ),
                     if (isOwnerOrAdmin) ...[
                       const SizedBox(height: 12),
