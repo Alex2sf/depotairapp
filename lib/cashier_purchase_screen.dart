@@ -17,8 +17,17 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
 
   // Form State
   final _formKey = GlobalKey<FormState>();
-  String _category = 'OPERATIONAL'; // strictly OPERATIONAL (No stock purchases from drawer)
+  String _category = 'OPERATIONAL'; // 'OPERATIONAL' or 'STOCK' (Beli Galon Kosong)
   int? _selectedProductId;
+
+  Map<String, dynamic>? get _selectedProduct {
+    if (_selectedProductId == null || _products.isEmpty) return null;
+    return _products.firstWhere(
+      (p) => p['id'] == _selectedProductId,
+      orElse: () => _products.first,
+    );
+  }
+
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _qtyController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -46,6 +55,7 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
   @override
   void initState() {
     super.initState();
+    _qtyController.text = '1';
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (_tabController.index == 1 && !_tabController.indexIsChanging) {
@@ -78,7 +88,15 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
       if (productData != null && productData['success'] == true) {
         _products = List<dynamic>.from(productData['data'] ?? []);
         if (_products.isNotEmpty) {
-          _selectedProductId = _products.first['id'];
+          // Cari produk galon kosong terlebih dahulu (seperti 'Aqua 19l (kosong)')
+          final defaultEmpty = _products.firstWhere(
+            (p) => (p['name'] ?? '').toString().toLowerCase().contains('kosong'),
+            orElse: () => _products.firstWhere(
+              (p) => (p['name'] ?? '').toString().toLowerCase().contains('galon'),
+              orElse: () => _products.first,
+            ),
+          );
+          _selectedProductId = defaultEmpty['id'];
         }
       }
 
@@ -136,6 +154,12 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
               final name = (p['name'] ?? '').toString().toLowerCase();
               return name.contains(searchQuery.toLowerCase());
             }).toList();
+            filtered.sort((a, b) {
+              final aKosong = (a['name'] ?? '').toString().toLowerCase().contains('kosong') ? 1 : 0;
+              final bKosong = (b['name'] ?? '').toString().toLowerCase().contains('kosong') ? 1 : 0;
+              if (aKosong != bKosong) return bKosong.compareTo(aKosong);
+              return (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString());
+            });
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.75,
@@ -420,7 +444,7 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
       qty = int.tryParse(_qtyController.text) ?? 0;
       if (qty <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Jumlah barang belanja harus lebih dari 0!'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('Jumlah galon kosong harus lebih dari 0!'), backgroundColor: Colors.red),
         );
         return;
       }
@@ -428,10 +452,17 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
 
     setState(() => _isLoading = true);
 
+    final String defaultDesc = _category == 'STOCK'
+        ? 'Beli ${_selectedProduct?['name'] ?? 'Galon Kosong'} x$qty'
+        : 'Operasional Kasir';
+    final String finalDesc = _descController.text.trim().isNotEmpty
+        ? _descController.text.trim()
+        : defaultDesc;
+
     final res = await _apiService.postCashierPurchase(
       category: _category,
       amount: amount,
-      description: _descController.text.trim(),
+      description: finalDesc,
       productId: _category == 'STOCK' ? _selectedProductId : null,
       quantity: _category == 'STOCK' ? qty : null,
       proofImagePath: _proofImage?.path,
@@ -460,7 +491,7 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
 
         // Reset Form
         _amountController.clear();
-        _qtyController.clear();
+        _qtyController.text = '1';
         _descController.clear();
         setState(() {
           _proofImage = null;
@@ -618,28 +649,178 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
             ),
             const SizedBox(height: 24),
 
-            // INFO PENGELUARAN LACI KHUSUS OPERASIONAL
+            // PILIHAN KATEGORI PENGELUARAN LACI
+            const Text('Jenis Pengeluaran Laci', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+            const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Icon(Icons.storefront_rounded, color: Color(0xFFD97706), size: 24),
-                  SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      'Uang laci kasir HANYA untuk operasional harian (bensin kurir, es batu, konsumsi, lakban, dll).\n\nPengadaan stok barang toko (Galon, Tutup, dll) tidak boleh dari uang laci, wajib melalui menu Pengajuan Pengadaan Stok agar dipotong dari Kas Besar setelah disetujui Owner.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4, fontWeight: FontWeight.w600),
-                    ),
+                    child: _buildCategoryToggle('Operasional Harian', 'OPERATIONAL', Icons.storefront_rounded, Colors.orange.shade800),
+                  ),
+                  Expanded(
+                    child: _buildCategoryToggle('Beli Galon Kosong', 'STOCK', Icons.inventory_2_rounded, Colors.blue.shade800),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            if (!isStock) ...[
+              // INFO PENGELUARAN LACI KHUSUS OPERASIONAL
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.storefront_rounded, color: Color(0xFFD97706), size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Uang laci kasir untuk operasional harian (bensin kurir, es batu, konsumsi, lakban, dll).\nSaldo laci terpotong, tanpa penambahan stok barang.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // INFO PENGELUARAN KHUSUS BELI GALON KOSONG
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFBAE6FD)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF0284C7), size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Khusus beli galon kosong langsung pakai uang laci kasir.\nSaldo kas laci berkurang dan stok galon kosong otomatis bertambah di sistem.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF0369A1), height: 1.4, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // PILIHAN PRODUK GALON KOSONG
+              const Text('Produk Galon yang Ditambah', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: _showProductSearchSheet,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade300, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.water_drop_outlined, color: Colors.blue.shade700, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedProduct?['name'] ?? 'Pilih Galon Kosong',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Stok saat ini: ${_selectedProduct?['stock'] ?? 0} ${_selectedProduct?['unit'] ?? 'Galon'}',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // INPUT JUMLAH STOK YANG DITAMBAH
+              const Text('Berapa Stok Galon yang Ditambah?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () {
+                        int cur = int.tryParse(_qtyController.text) ?? 1;
+                        if (cur > 1) {
+                          _qtyController.text = (cur - 1).toString();
+                          setState(() {});
+                        }
+                      },
+                      icon: const Icon(Icons.remove_circle_outline, color: Colors.grey),
+                    ),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _qtyController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: '1',
+                        ),
+                        validator: (val) {
+                          if (_category == 'STOCK') {
+                            final q = int.tryParse(val ?? '');
+                            if (q == null || q <= 0) return 'Jumlah minimal 1';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        int cur = int.tryParse(_qtyController.text) ?? 0;
+                        _qtyController.text = (cur + 1).toString();
+                        setState(() {});
+                      },
+                      icon: Icon(Icons.add_circle_outline, color: Colors.blue.shade700),
+                    ),
+                    Text('Galon', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade600)),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             // NOMINAL UANG BELANJA (DIPOTONG DARI LACI)
@@ -686,13 +867,13 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
             TextFormField(
               controller: _descController,
               decoration: InputDecoration(
-                hintText: isStock ? 'Contoh: Beli tutup galon dari toko sebelah' : 'Keterangan pengeluaran operasional...',
+                hintText: isStock ? 'Opsional: Catatan beli galon kosong (misal: dari langganan)' : 'Keterangan pengeluaran operasional...',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
               ),
-              validator: (val) => val == null || val.isEmpty ? 'Keterangan wajib diisi' : null,
+              validator: (val) => (!isStock && (val == null || val.trim().isEmpty)) ? 'Keterangan wajib diisi' : null,
             ),
             const SizedBox(height: 20),
 
@@ -859,17 +1040,17 @@ class _CashierPurchaseScreenState extends State<CashierPurchaseScreen> with Sing
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isStock ? Colors.teal.shade50 : Colors.orange.shade50,
+                          color: isStock ? Colors.blue.shade50 : Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: isStock ? Colors.teal.shade100 : Colors.orange.shade100),
+                          border: Border.all(color: isStock ? Colors.blue.shade100 : Colors.orange.shade100),
                         ),
                         child: Row(
                           children: [
-                            Icon(isStock ? Icons.inventory_2 : Icons.storefront, size: 14, color: isStock ? Colors.teal.shade800 : Colors.orange.shade800),
+                            Icon(isStock ? Icons.inventory_2_rounded : Icons.storefront, size: 14, color: isStock ? Colors.blue.shade800 : Colors.orange.shade800),
                             const SizedBox(width: 4),
                             Text(
-                              isStock ? 'BELANJA STOK' : 'OPERASIONAL',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isStock ? Colors.teal.shade800 : Colors.orange.shade800),
+                              isStock ? 'BELI GALON KOSONG' : 'OPERASIONAL',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: isStock ? Colors.blue.shade800 : Colors.orange.shade800),
                             ),
                           ],
                         ),
