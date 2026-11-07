@@ -4,6 +4,16 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'api_service.dart';
 
+String formatProcurementDate(String? dateStr) {
+  if (dateStr == null || dateStr.isEmpty) return '-';
+  try {
+    final dt = DateTime.parse(dateStr).toLocal();
+    return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(dt);
+  } catch (_) {
+    return dateStr;
+  }
+}
+
 class StockProcurementScreen extends StatefulWidget {
   const StockProcurementScreen({super.key});
 
@@ -43,13 +53,7 @@ class _StockProcurementScreenState extends State<StockProcurementScreen> with Si
   }
 
   String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '-';
-    try {
-      final dt = DateTime.parse(dateStr).toLocal();
-      return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(dt);
-    } catch (_) {
-      return dateStr;
-    }
+    return formatProcurementDate(dateStr);
   }
 
   String? _getCurrentStatusFilter() {
@@ -188,6 +192,10 @@ class _StockProcurementScreenState extends State<StockProcurementScreen> with Si
     final status = (item['status'] ?? 'PENDING').toString().toUpperCase();
     final items = (item['items'] as List<dynamic>?) ?? [];
     final requester = item['requester']?['name'] ?? 'Kasir';
+    final approvedAt = item['approved_at'];
+    final approver = item['approver']?['name'];
+    final receivedAt = item['received_at'];
+    final receiver = item['receiver']?['name'];
     final number = item['procurement_number'] ?? '-';
     final createdAt = item['created_at'];
 
@@ -298,15 +306,127 @@ class _StockProcurementScreenState extends State<StockProcurementScreen> with Si
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.person_outline_rounded, size: 14, color: Color(0xFF64748B)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Diajukan oleh: $requester',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                    ),
-                  ],
+                // Timeline & Status Audit Box
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. Diajukan
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 2),
+                            child: Icon(Icons.edit_calendar_rounded, size: 13, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569)),
+                                children: [
+                                  const TextSpan(text: 'Diajukan: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  TextSpan(text: '${_formatDate(createdAt)} (oleh $requester)'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // 2. Disetujui / Ditolak Owner
+                      if (status == 'APPROVED' || status == 'RECEIVED') ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.verified_rounded, size: 13, color: Color(0xFF16A34A)),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF15803D)),
+                                  children: [
+                                    const TextSpan(text: 'Disetujui: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    TextSpan(
+                                      text: approvedAt != null
+                                          ? '${_formatDate(approvedAt)} (oleh ${approver ?? 'Owner'})'
+                                          : 'Disetujui (oleh ${approver ?? 'Owner'})',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else if (status == 'REJECTED') ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.cancel_rounded, size: 13, color: Color(0xFFDC2626)),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFB91C1C)),
+                                  children: [
+                                    const TextSpan(text: 'Ditolak: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    TextSpan(
+                                      text: approvedAt != null
+                                          ? '${_formatDate(approvedAt)} (oleh ${approver ?? 'Owner'})'
+                                          : 'Ditolak (oleh ${approver ?? 'Owner'})',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      // 3. Diterima Stok (RECEIVED)
+                      if (status == 'RECEIVED') ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(Icons.inventory_rounded, size: 13, color: Color(0xFF0284C7)),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF0369A1)),
+                                  children: [
+                                    const TextSpan(text: 'Diterima: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    TextSpan(
+                                      text: receivedAt != null
+                                          ? '${_formatDate(receivedAt)} (oleh ${receiver ?? 'Kasir'})'
+                                          : 'Masuk ke stok (oleh ${receiver ?? 'Kasir'})',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const Text(
@@ -2125,6 +2245,29 @@ class _ReceiveGoodsSheetState extends State<_ReceiveGoodsSheet> {
             const Text('Konfirmasi Barang Diterima', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 4),
             Text('No Pengadaan: ${widget.procurement['procurement_number']}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            if (widget.procurement['approved_at'] != null || widget.procurement['approver'] != null) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Disetujui: ${formatProcurementDate(widget.procurement['approved_at'])} oleh ${widget.procurement['approver']?['name'] ?? 'Owner'}',
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFF15803D), fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
 
             const Text('Barang yang Disetujui & Masuk ke Stok:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
